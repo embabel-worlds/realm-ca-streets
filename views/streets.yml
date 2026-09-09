@@ -14,7 +14,7 @@
 # paint. Alert counts come from AlertsAtMyMPs, which owns that cost.
 
 - name: CaPlaceDossier
-  description: The whole picture per watched Canadian place, one row each — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value for the municipality, the CURRENT unemployment rate for its census metropolitan area (StatCan LFS, latest month, seasonally adjusted — with the month and area it describes), the CMA's police-reported Crime Severity Index (annual, latest year), its July-1 population estimate, the latest monthly average gas price, worst current AQHI nearby, and current temperature and conditions (English and French). Active alerts are NOT in this row — run AlertsAtMyMPs for those; keeping the short-TTL alert join out keeps this view fast.
+  description: The FAST whole-picture row per watched Canadian place — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value, worst current AQHI nearby, and current temperature and conditions (English and French). Deliberately excludes every StatCan-vector series (unemployment, crime severity, housing index, gas, population estimates — run StatcanAtMyPlaces) and the alert join (run AlertsAtMyMPs) — those sources are slower or rate-limited and must never sit on the first paint.
   params:
     limit:
       type: int
@@ -32,33 +32,16 @@
     WITH p, s, population, medianAge, max(toFloat(inc.value)) AS medianHouseholdIncome
     OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(dv:CaDwellingValue)
     WITH p, s, population, medianAge, medianHouseholdIncome, max(toFloat(dv.value)) AS medianDwellingValue
-    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]->(un0:CaUnemploymentNow)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, un0 ORDER BY un0.month DESC
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, collect(un0)[0] AS un
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, toFloat(un.rate) AS unemploymentRate, un.month AS unemploymentMonth
     OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, max(toFloat(a.aqhi)) AS worstAqhi
-    OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(cs0:CaCrimeSeverity)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs0 ORDER BY cs0.year DESC
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, collect(cs0)[0] AS cs
-    OPTIONAL MATCH (p)-[:HAS_POP_NOW]->(pn0:CaPopulationNow)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn0 ORDER BY pn0.year DESC
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, collect(pn0)[0] AS pn
-    OPTIONAL MATCH (p)-[:HAS_GAS]->(g0:CaGasPrice)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn, g0 ORDER BY g0.month DESC
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn, collect(g0)[0] AS g
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, max(toFloat(a.aqhi)) AS worstAqhi
     OPTIONAL MATCH (p)-[:HAS_WEATHER]->(w0:LocalWeather)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn, g, collect(w0)[0] AS w
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, worstAqhi, collect(w0)[0] AS w
     RETURN p.name AS place, p.city AS city, p.province AS province,
            p.postalCode AS postalCode,
            toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
            s.riding AS riding, s.mp AS mp, s.party AS party,
            s.photo AS photo, s.email AS email, s.gender AS gender,
            population, medianAge, medianHouseholdIncome, medianDwellingValue,
-           unemploymentRate, unemploymentMonth, p.lfsCma AS unemploymentArea,
-           toFloat(cs.csi) AS crimeSeverityIndex, cs.year AS crimeSeverityYear, p.csiArea AS crimeSeverityArea,
-           toFloat(pn.population) AS populationNow, pn.year AS populationNowYear, p.popArea AS populationNowArea,
-           toFloat(g.centsPerLitre) AS gasCentsPerLitre, g.month AS gasMonth,
            worstAqhi,
            toFloat(w.temperature) AS temperatureC, w.condition AS condition,
            w.conditionFr AS conditionFr
@@ -92,6 +75,38 @@
     MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
     RETURN p.name AS place, s.riding AS riding, s.mp AS mp, s.party AS party,
            s.email AS email, s.photo AS photo
+    ORDER BY place LIMIT $limit
+
+- name: StatcanAtMyPlaces
+  description: Every StatCan-vector figure per watched place in one BACKGROUND row — current unemployment (LFS, latest month, CMA/province), Crime Severity Index (annual), New Housing Price Index (latest month), average gas price (latest month), and the July-1 population estimate — each with the month/year and geography it describes. This view owns the rate-limited StatCan fan-out so CaPlaceDossier stays fast; expect occasional PRODUCER_ERROR warnings while statcan.gc.ca is throttling (HTTP 430) — the figures fill in as caches warm and then hold for a day (monthly series) or a week (annual).
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]->(un0:CaUnemploymentNow)
+    WITH p, un0 ORDER BY un0.month DESC
+    WITH p, collect(un0)[0] AS un
+    OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(cs0:CaCrimeSeverity)
+    WITH p, un, cs0 ORDER BY cs0.year DESC
+    WITH p, un, collect(cs0)[0] AS cs
+    OPTIONAL MATCH (p)-[:HAS_NHPI]->(n0:CaHousingPriceIndex)
+    WITH p, un, cs, n0 ORDER BY n0.month DESC
+    WITH p, un, cs, collect(n0)[0] AS nh
+    OPTIONAL MATCH (p)-[:HAS_GAS]->(g0:CaGasPrice)
+    WITH p, un, cs, nh, g0 ORDER BY g0.month DESC
+    WITH p, un, cs, nh, collect(g0)[0] AS g
+    OPTIONAL MATCH (p)-[:HAS_POP_NOW]->(pn0:CaPopulationNow)
+    WITH p, un, cs, nh, g, pn0 ORDER BY pn0.year DESC
+    WITH p, un, cs, nh, g, collect(pn0)[0] AS pn
+    RETURN p.name AS place,
+           toFloat(un.rate) AS unemploymentRate, un.month AS unemploymentMonth, p.lfsCma AS unemploymentArea,
+           toFloat(cs.csi) AS crimeSeverityIndex, cs.year AS crimeSeverityYear, p.csiArea AS crimeSeverityArea,
+           toFloat(nh.index) AS nhpiLatest, nh.month AS nhpiMonth, p.nhpiArea AS nhpiArea,
+           toFloat(g.centsPerLitre) AS gasCentsPerLitre, g.month AS gasMonth, p.gasArea AS gasArea,
+           toFloat(pn.population) AS populationNow, pn.year AS populationNowYear, p.popArea AS populationNowArea
     ORDER BY place LIMIT $limit
 
 # ── The cross-source views — questions no single register answers ────────────

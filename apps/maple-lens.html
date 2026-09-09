@@ -9,7 +9,7 @@
 <script src="/api/v1/apps-runtime/v1/embabel.js"></script>
 <script src="/api/v1/apps-runtime/gateway.js"></script>
 <script type="application/embabel-app+json">
-{"version":1,"name":"maple-lens","requires":{"lenses":[],"views":["CaPlaceDossier","WhoRepresentsMe","SplitRepresentation","AffordabilityGap","PartyLedger","AirVsIncome","AlertsAtMyMPs","AirQualityNow","RiversNearMe","CaCrimeVsIncome","HousingHeat"],"realms":["ca-streets"],"namespaces":["represent","repository","nrcanGeolocator"]}}
+{"version":1,"name":"maple-lens","requires":{"lenses":[],"views":["CaPlaceDossier","WhoRepresentsMe","SplitRepresentation","AffordabilityGap","PartyLedger","AirVsIncome","AlertsAtMyMPs","AirQualityNow","RiversNearMe","CaCrimeVsIncome","HousingHeat","StatcanAtMyPlaces"],"realms":["ca-streets"],"namespaces":["represent","repository","nrcanGeolocator"]}}
 </script>
 <style>
 :root{
@@ -282,7 +282,7 @@ footer.foot{margin-top:26px;padding:14px 0 4px;color:var(--dim);font-size:12.5px
   <p>Everything except the places themselves is <em>virtual</em>: fetched from the source when a view runs, cached at the source's own cadence, never mirrored. "Now" means "as of the cache age above". French text is the SOURCE's own French (Environment Canada publishes both official languages); the app never machine-translates data.</p>
 
   <h3>2 · The questions</h3>
-  <p>Every panel runs a saved view by name through the app runtime (<code>embabel.views.invoke</code>). The views this page calls: <code>CaPlaceDossier</code> (the map and the dossier card — deliberately excludes the alert join so first paint stays fast), <code>WhoRepresentsMe</code>, <code>AffordabilityGap</code>, <code>PartyLedger</code>, <code>SplitRepresentation</code>, <code>AirVsIncome</code>, <code>AlertsAtMyMPs</code> (which owns the alert fetch; the dossier's alert pill is derived from its rows), <code>AirQualityNow</code>, <code>RiversNearMe</code>, <code>CaCrimeVsIncome</code>, and <code>HousingHeat</code>. Adding a place by postal code calls <code>gateway.represent.representPostcode</code> once, then <code>gateway.repository.createEntry</code>. Adding a place by NAME calls <code>gateway.nrcanGeolocator.nrcanGeolocate</code> (NRCan place-name search), then <code>gateway.represent.csdForPoint</code> and <code>gateway.represent.mpForPoint</code> for the census key and the riding, then <code>createEntry</code> — such a place has no postal code, so its full representative slate stays empty (the page says so in place). No other calls are made.</p>
+  <p>Every panel runs a saved view by name through the app runtime (<code>embabel.views.invoke</code>). The views this page calls: <code>CaPlaceDossier</code> (the map and the dossier card — deliberately excludes the alert join so first paint stays fast), <code>WhoRepresentsMe</code>, <code>AffordabilityGap</code>, <code>PartyLedger</code>, <code>SplitRepresentation</code>, <code>AirVsIncome</code>, <code>AlertsAtMyMPs</code> (which owns the alert fetch; the dossier's alert pill is derived from its rows), <code>AirQualityNow</code>, <code>RiversNearMe</code>, <code>CaCrimeVsIncome</code>, <code>HousingHeat</code>, and <code>StatcanAtMyPlaces</code> (the background row that hydrates the unemployment, crime-severity, population and gas tiles after first paint — the dossier itself deliberately touches no rate-limited StatCan series). Adding a place by postal code calls <code>gateway.represent.representPostcode</code> once, then <code>gateway.repository.createEntry</code>. Adding a place by NAME calls <code>gateway.nrcanGeolocator.nrcanGeolocate</code> (NRCan place-name search), then <code>gateway.represent.csdForPoint</code> and <code>gateway.represent.mpForPoint</code> for the census key and the riding, then <code>createEntry</code> — such a place has no postal code, so its full representative slate stays empty (the page says so in place). No other calls are made.</p>
   <p>The dossier view — the exact query that runs:</p>
   <pre>MATCH (p:CaPlace)
 OPTIONAL MATCH (p)-[:HAS_SEAT]-&gt;(s0:CaSeat)
@@ -295,20 +295,14 @@ OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]-&gt;(inc:CaHouseholdIncome)
 WITH p, s, population, medianAge, max(toFloat(inc.value)) AS medianHouseholdIncome
 OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]-&gt;(dv:CaDwellingValue)
 WITH p, s, population, medianAge, medianHouseholdIncome, max(toFloat(dv.value)) AS medianDwellingValue
-OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]-&gt;(un0:CaUnemploymentNow)
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, un0 ORDER BY un0.month DESC
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, collect(un0)[0] AS un
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, toFloat(un.rate) AS unemploymentRate, un.month AS unemploymentMonth
 OPTIONAL MATCH (p)-[:HAS_AIR]-&gt;(a:AirQualityObs)
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, max(toFloat(a.aqhi)) AS worstAqhi
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, max(toFloat(a.aqhi)) AS worstAqhi
 OPTIONAL MATCH (p)-[:HAS_WEATHER]-&gt;(w0:LocalWeather)
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, collect(w0)[0] AS w
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, worstAqhi, collect(w0)[0] AS w
 RETURN p.name AS place, p.city AS city, p.province AS province, p.postalCode AS postalCode,
        toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
        s.riding AS riding, s.mp AS mp, s.party AS party, s.photo AS photo, s.email AS email, s.gender AS gender,
-       population, medianAge, medianHouseholdIncome, medianDwellingValue,
-       unemploymentRate, unemploymentMonth, p.lfsCma AS unemploymentArea,
-       worstAqhi,
+       population, medianAge, medianHouseholdIncome, medianDwellingValue, worstAqhi,
        toFloat(w.temperature) AS temperatureC, w.condition AS condition, w.conditionFr AS conditionFr
 ORDER BY place LIMIT $limit</pre>
   <p>Split representation — the join and the <code>aligned</code> definition (a shared party-name stem, nothing more):</p>
@@ -456,6 +450,7 @@ const I18N = {
   resolving: { en: 'Resolving ', fr: 'Résolution de ' },
   watching: { en: ' — re-asking every source…', fr: ' — nouvelle interrogation de chaque source…' },
   noSuchPostal: { en: 'Represent knows no such postal code.', fr: 'Represent ne connaît pas ce code postal.' },
+  alreadyWatched: { en: 'Already watching that place', fr: 'Ce lieu est déjà surveillé' },
   addFailed: { en: 'Adding the place failed — ', fr: 'L’ajout du lieu a échoué — ' },
   expectation: { en: 'Asking Parliament, StatCan and Environment Canada about each watched place — a cold read fans out one call per source per place.',
                  fr: 'Interrogation du Parlement, de StatCan et d’Environnement Canada pour chaque lieu — une lecture à froid lance un appel par source et par lieu.' },
@@ -676,7 +671,7 @@ const project = (lon, lat) => {
 const S = { dossier: [], reps: [], rivers: [], airStations: [], selected: null,
             repsFailed: false, loading: false,
             afford: null, ledger: null, split: null, airVs: null, alerts: null,
-            crime: null, housing: null,
+            crime: null, housing: null, statcan: null,
             alertCounts: null };
 
 /* ── chrome ── */
@@ -778,6 +773,9 @@ function renderDossier() {
     : (nAlerts > 0
       ? `<span class="pill"><span class="dotc" style="background:var(--bad)"></span><b>${nAlerts}</b>&nbsp;${nAlerts > 1 ? t('activeAlerts') : t('activeAlert')}</span>`
       : `<span class="pill"><span class="dotc" style="background:var(--ok)"></span>${t('noActiveAlerts')}</span>`);
+  const sc = (S.statcan && S.statcan[r.place]) || {};
+  const scPending = S.statcan == null;
+  const dash = scPending ? '…' : '—';
   const mpLabel = r.gender === 'F' ? t('mpF') : t('mpM');
   const reps = S.reps.filter(x => x.place === r.place && x.office !== 'MP');
   const rivers = S.rivers.filter(x => x.place === r.place).slice(0, 4);
@@ -793,18 +791,18 @@ function renderDossier() {
       </div>
     </div>
     <div class="tiles">
-      <div class="tile" title="${escapeHtml(r.populationNowArea || '')}"><div class="v">${fmtN(r.populationNow != null ? r.populationNow : r.population)}</div><div class="k">${r.populationNow != null ? t('popNowLabel') + ' ' + escapeHtml(String(r.populationNowYear || '').slice(0, 4)) + ' (' + t('cmaTag') + ')' : t('popLabel')}</div></div>
+      <div class="tile" title="${escapeHtml(sc.populationNowArea || '')}"><div class="v">${fmtN(sc.populationNow != null ? sc.populationNow : r.population)}</div><div class="k">${sc.populationNow != null ? t('popNowLabel') + ' ' + escapeHtml(String(sc.populationNowYear || '').slice(0, 4)) + ' (' + t('cmaTag') + ')' : t('popLabel')}</div></div>
       <div class="tile"><div class="v">${fmt$(r.medianHouseholdIncome)}</div><div class="k">${t('incomeLabel')}</div></div>
       <div class="tile"><div class="v">${fmt$(r.medianDwellingValue)}</div><div class="k">${t('dwellingLabel')}</div></div>
       <div class="tile hot"><div class="v">${afford == null ? '—' : fmtN(afford) + ' ' + t('yrs')}</div><div class="k">${t('affordLabel')}</div></div>
       <div class="tile"><div class="v">${r.medianAge == null ? '—' : fmtN(r.medianAge)}</div><div class="k">${t('ageLabel')}</div></div>
-      <div class="tile" title="${escapeHtml(r.crimeSeverityArea || '')}"><div class="v">${r.crimeSeverityIndex == null ? '—' : fmtN(r.crimeSeverityIndex)}</div><div class="k">${t('csiLabel')}${r.crimeSeverityYear ? ' ' + escapeHtml(String(r.crimeSeverityYear).slice(0, 4)) : ''}</div></div>
-      <div class="tile" title="${escapeHtml(r.unemploymentArea || '')}"><div class="v">${r.unemploymentRate == null ? '—' : fmtN(r.unemploymentRate) + ' %'}</div><div class="k">${t('unempLabel')}${r.unemploymentMonth ? ' · ' + escapeHtml(String(r.unemploymentMonth).slice(0, 7)) : ''}</div></div>
+      <div class="tile" title="${escapeHtml(sc.crimeSeverityArea || '')}"><div class="v">${sc.crimeSeverityIndex == null ? dash : fmtN(sc.crimeSeverityIndex)}</div><div class="k">${t('csiLabel')}${sc.crimeSeverityYear ? ' ' + escapeHtml(String(sc.crimeSeverityYear).slice(0, 4)) : ''}</div></div>
+      <div class="tile" title="${escapeHtml(sc.unemploymentArea || '')}"><div class="v">${sc.unemploymentRate == null ? dash : fmtN(sc.unemploymentRate) + ' %'}</div><div class="k">${t('unempLabel')}${sc.unemploymentMonth ? ' · ' + escapeHtml(String(sc.unemploymentMonth).slice(0, 7)) : ''}</div></div>
     </div>
     <div class="liverow">
       ${r.temperatureC != null ? `<span class="pill"><b>${fmtN(r.temperatureC)} °C</b>${cond ? '&nbsp;· ' + escapeHtml(cond) : ''}</span>` : `<span class="pill covnote">${t('noConditions')}</span>`}
       ${aqhiHtml}
-      ${r.gasCentsPerLitre != null ? `<span class="pill" title="${escapeHtml(r.gasMonth || '')}">⛽ <b>${fmtN(r.gasCentsPerLitre)}</b>&nbsp;¢/L${r.gasMonth ? ' · ' + escapeHtml(String(r.gasMonth).slice(0, 7)) : ''}</span>` : ''}
+      ${sc.gasCentsPerLitre != null ? `<span class="pill" title="${escapeHtml(sc.gasMonth || '')}">⛽ <b>${fmtN(sc.gasCentsPerLitre)}</b>&nbsp;¢/L${sc.gasMonth ? ' · ' + escapeHtml(String(sc.gasMonth).slice(0, 7)) : ''}</span>` : ''}
       ${alertPill}
     </div>
     <div class="minihead">${t('everyoneReps')}</div>
@@ -1000,7 +998,11 @@ async function loadAll() {
       loadPanel('CaCrimeVsIncome', 'st-crime', 'p-crime', rows => { S.crime = rows; renderCrime(rows); }),
       loadPanel('HousingHeat', 'st-housing', 'p-housing', rows => { S.housing = rows; renderHousing(rows); }),
       embabel.views.invoke('AirQualityNow', {}).then(env => { S.airStations = rowsOf(env); }).catch(() => { S.airStations = []; }),
-      embabel.views.invoke('WhoRepresentsMe', {}).then(env => { S.reps = rowsOf(env); }).catch(() => { S.reps = []; S.repsFailed = true; })
+      embabel.views.invoke('WhoRepresentsMe', {}).then(env => { S.reps = rowsOf(env); }).catch(() => { S.reps = []; S.repsFailed = true; }),
+      embabel.views.invoke('StatcanAtMyPlaces', {}).then(env => {
+        S.statcan = {};
+        for (const row of rowsOf(env)) S.statcan[row.place] = row;
+      }).catch(() => { S.statcan = {}; })
     ]);
     if (dossierOk) renderDossier(); /* reps, rivers, stations and alert counts arrived after first paint */
   } finally {
@@ -1032,6 +1034,12 @@ async function addPlace() {
   if (!isPostal && raw.length < 3) {
     msg.className = 'addmsg err'; msg.textContent = t('badInput'); return;
   }
+  const rawN = raw.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const dup = S.dossier.find(pl => {
+    const n = String(pl.place || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return n === rawN || (pl.postalCode && pl.postalCode === code);
+  });
+  if (dup) { msg.className = 'addmsg err'; msg.textContent = t('alreadyWatched') + ' (' + dup.place + ')'; return; }
   $('addBtn').disabled = true;
   try {
     let data = null;
