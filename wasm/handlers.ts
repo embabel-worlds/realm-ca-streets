@@ -46,7 +46,7 @@ export async function warmLiveFeeds(args: { limit?: number }, ctx: any) {
     WITH p, seat, reps, pop, age, count(c3) AS income
     OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(c4:CaDwellingValue)
     WITH p, seat, reps, pop, age, income, count(c4) AS dwelling
-    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(c5:CaUnemployment)
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]->(c5:CaUnemploymentNow)
     WITH p, seat, reps, pop, age, income, dwelling, count(c5) AS unemployment
     OPTIONAL MATCH (p)-[:HAS_ALERT]->(al:CaWeatherAlert)
     WITH p, seat, reps, pop, age, income, dwelling, unemployment, count(al) AS alerts

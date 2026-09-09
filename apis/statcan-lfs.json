@@ -1,0 +1,66 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Statistics Canada Labour Force Survey vectors (WDS)",
+    "version": "1.0.0",
+    "description": "Keyless GET access to StatCan Web Data Service vector series. Used for CURRENT unemployment rates by census metropolitan area (table 14-10-0459: three-month moving average, seasonally adjusted, monthly) — the vector id per CMA/province is resolved once (getSeriesInfoFromCubePidCoord, coordinate '{geoMemberId}.5.1.1.0.0.0.0.0.0') and stored on the place."
+  },
+  "servers": [
+    {
+      "url": "https://www150.statcan.gc.ca"
+    }
+  ],
+  "paths": {
+    "/t1/wds/rest/getDataFromVectorByReferencePeriodRange": {
+      "get": {
+        "operationId": "lfsVectorRange",
+        "summary": "Monthly values of one WDS vector over a period range",
+        "description": "Returns [{status, object:{vectorId, vectorDataPoint:[{refPer, value, releaseTime,…}]}}]. vectorIds is the BARE number (no 'v' prefix — the prefixed form is rejected with 'not valid. Error code = 3'). A future endReferencePeriod is accepted, so static producer args stay valid.",
+        "parameters": [
+          {
+            "name": "vectorIds",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bare numeric vector id, e.g. 1643279334 (Toronto CMA unemployment rate)."
+          },
+          {
+            "name": "startRefPeriod",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "YYYY-MM-DD."
+          },
+          {
+            "name": "endReferencePeriod",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "YYYY-MM-DD; may be in the future."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array with one entry per vector.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

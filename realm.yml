@@ -14,7 +14,7 @@ description: |
   under the leaf, with a loon on the water.
 
   No API keys and no accounts — the realm works the moment it is installed.
-version: 0.1.1
+version: 0.1.2
 author: rod
 tags:
   - canada
@@ -29,6 +29,7 @@ exports:
   - nrcan_geolocator
   - geomet
   - census_profile
+  - statcan_lfs
   - CaPlace
   - CaSeat
   - ElectedRep
@@ -40,4 +41,4 @@ exports:
   - CaMedianAge
   - CaHouseholdIncome
   - CaDwellingValue
-  - CaUnemployment
+  - CaUnemploymentNow

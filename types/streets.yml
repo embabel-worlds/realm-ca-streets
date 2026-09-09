@@ -49,6 +49,12 @@
     bboxWide:
       type: string
       description: "A ~±0.7° box, same format — the key the AQHI join uses (stations exist near cities only, so the air join casts wider)."
+    lfsVector:
+      type: string
+      description: "StatCan WDS vector id (bare digits) for the place's CURRENT unemployment rate — the CMA's series from table 14-10-0459, or the province's as fallback. The key the HAS_UNEMPLOYMENT_NOW join uses."
+    lfsCma:
+      type: string
+      description: "The LFS geography the vector describes, e.g. 'Toronto, Ontario' or just 'Ontario' when no CMA covers the place — always show it beside the rate."
     notes:
       type: string
       description: "Why the user watches this place — free text, optional."
@@ -284,22 +290,19 @@
       description: "Median dwelling value, CAD, owner-estimated, 2021 Census."
     area: "The municipality's official census name."
 
-- name: CaUnemployment
-  description: "Unemployment rate (%), 2021 Census (census reference week, May 2021 — mid-pandemic; say so when comparing to today), for a watched place's municipality. Reached via HAS_UNEMPLOYMENT — one row per place."
+- name: CaUnemploymentNow
+  description: "CURRENT unemployment rate for the watched place's census metropolitan area (or its province, where no CMA covers it) — StatCan Labour Force Survey, table 14-10-0459, three-month moving average, seasonally adjusted, monthly. Reached via HAS_UNEMPLOYMENT_NOW; one row per month since 2025, so take the LATEST month (ORDER BY month DESC). Replaces the 2021 census unemployment figure, whose reference week was May 2021 — mid-pandemic and not comparable to today."
   virtualJoins:
     - anchorLabel: CaPlace
-      relationship: HAS_UNEMPLOYMENT
-      keyField: dguid
+      relationship: HAS_UNEMPLOYMENT_NOW
+      keyField: lfsVector
       recordKeyField: key
-      producer: censusUnemployment
+      producer: lfsMonthly
       maxAnchors: 15
-      description: "The municipality's census unemployment rate."
+      description: "Monthly unemployment rates for the place's CMA/province — always take the latest month; the series exists for trend questions."
   properties:
-    key:
-      description: "The DGUID — join link and identity."
-      metadata:
-        identity: "true"
-    value:
+    key: "The WDS vector id — the join link."
+    month: "The reference month, YYYY-MM-DD (first of month)."
+    rate:
       type: number
-      description: "Unemployment rate, %, census reference week 2021."
-    area: "The municipality's official census name."
+      description: "Unemployment rate, %, three-month moving average, seasonally adjusted."

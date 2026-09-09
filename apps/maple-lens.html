@@ -256,7 +256,8 @@ footer.foot{margin-top:26px;padding:14px 0 4px;color:var(--dim);font-size:12.5px
     <tr><td>Watched places (CaPlace)</td><td>Stored in your world's graph; geography resolved once from Represent when a place is added</td><td>Stored</td></tr>
     <tr><td>Sitting MP, riding, party, photo</td><td>House of Commons record via Represent (Open North), realm ca-streets</td><td>Cached 7 days</td></tr>
     <tr><td>All elected reps at the postal code</td><td>Represent (Open North)</td><td>Cached 7 days</td></tr>
-    <tr><td>Population, median age, household income, dwelling value, unemployment</td><td>Statistics Canada, Census Profile 2021 (SDMX), census-subdivision level</td><td>Cached 7 days; census vintage 2021 (incomes 2020)</td></tr>
+    <tr><td>Population, median age, household income, dwelling value</td><td>Statistics Canada, Census Profile 2021 (SDMX), census-subdivision level</td><td>Cached 7 days; census vintage 2021 (incomes 2020)</td></tr>
+    <tr><td>Unemployment rate (CURRENT)</td><td>Statistics Canada Labour Force Survey, table 14-10-0459 — census metropolitan area (or province where no CMA covers the place), three-month moving average, seasonally adjusted</td><td>Cached 1 day; monthly release. Replaced the 2021 census figure, whose reference week was May 2021 — mid-pandemic</td></tr>
     <tr><td>AQHI air quality</td><td>Environment Canada MSC GeoMet, latest observation per station (English and French station names from the source)</td><td>Cached 30 min</td></tr>
     <tr><td>River gauges</td><td>Water Survey of Canada via GeoMet, 5-minute readings</td><td>Cached 30 min</td></tr>
     <tr><td>Weather alerts</td><td>Environment Canada, active alerts, official wording in both languages</td><td>Cached 30 min — still the shortest cache here, so the alerts panel is the one that sometimes pays a cold multi-second fetch; the dossier deliberately does not depend on it</td></tr>
@@ -278,17 +279,20 @@ OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]-&gt;(inc:CaHouseholdIncome)
 WITH p, s, population, medianAge, max(toFloat(inc.value)) AS medianHouseholdIncome
 OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]-&gt;(dv:CaDwellingValue)
 WITH p, s, population, medianAge, medianHouseholdIncome, max(toFloat(dv.value)) AS medianDwellingValue
-OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]-&gt;(un:CaUnemployment)
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, max(toFloat(un.value)) AS unemploymentRate
+OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]-&gt;(un0:CaUnemploymentNow)
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, un0 ORDER BY un0.month DESC
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, collect(un0)[0] AS un
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, toFloat(un.rate) AS unemploymentRate, un.month AS unemploymentMonth
 OPTIONAL MATCH (p)-[:HAS_AIR]-&gt;(a:AirQualityObs)
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, max(toFloat(a.aqhi)) AS worstAqhi
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, max(toFloat(a.aqhi)) AS worstAqhi
 OPTIONAL MATCH (p)-[:HAS_WEATHER]-&gt;(w0:LocalWeather)
-WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, worstAqhi, collect(w0)[0] AS w
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, collect(w0)[0] AS w
 RETURN p.name AS place, p.city AS city, p.province AS province, p.postalCode AS postalCode,
        toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
        s.riding AS riding, s.mp AS mp, s.party AS party, s.photo AS photo, s.email AS email, s.gender AS gender,
        population, medianAge, medianHouseholdIncome, medianDwellingValue,
-       unemploymentRate, worstAqhi,
+       unemploymentRate, unemploymentMonth, p.lfsCma AS unemploymentArea,
+       worstAqhi,
        toFloat(w.temperature) AS temperatureC, w.condition AS condition, w.conditionFr AS conditionFr
 ORDER BY place LIMIT $limit</pre>
   <p>Split representation — the join and the <code>aligned</code> definition (a shared party-name stem, nothing more):</p>
@@ -318,7 +322,7 @@ ORDER BY yearsOfIncomePerHome IS NULL, yearsOfIncomePerHome DESC LIMIT $limit</p
     <li><b>The alerts panel arriving after everything else</b> is by design: alerts have the shortest cache (10 minutes) and the occasional cold fetch is paid there, never by the dossier.</li>
     <li><b>"Alerts" empty</b> is the answer you want — no active Environment Canada alert touches any watched place.</li>
     <li><b>A place missing from Split representation</b> means Represent carries no provincial member for that postal code (its municipal and provincial coverage varies) — not that the seat is vacant.</li>
-    <li><b>Census figures describe the whole municipality</b> — Toronto's median household income covers 2.8&nbsp;million people, not one street. Incomes are 2020; the unemployment rate is the census reference week of May 2021, mid-pandemic.</li>
+    <li><b>Census figures describe the whole municipality</b> — Toronto's median household income covers 2.8&nbsp;million people, not one street; incomes are 2020. The unemployment tile is different: it is LIVE monthly LFS data for the place's census metropolitan area (or province) — hover the tile to see which geography it describes.</li>
     <li><b>Null condition or temperature</b> overnight is normal — some weather.gc.ca sites stop reporting current conditions for a few hours.</li>
     <li><b>"Request failed"</b> in any panel means the fetch itself failed, not that the answer is empty — the two are worded differently everywhere in this app, in both languages.</li>
   </ul>
@@ -388,7 +392,7 @@ const I18N = {
   dwellingLabel: { en: 'Median dwelling', fr: 'Logement médian' },
   affordLabel: { en: 'Income per home', fr: 'Années de revenu par maison' },
   ageLabel: { en: 'Median age', fr: 'Âge médian' },
-  unempLabel: { en: 'Unemployment ’21', fr: 'Chômage ’21' },
+  unempLabel: { en: 'Unemployment now', fr: 'Chômage actuel' },
   yrs: { en: 'yrs', fr: 'ans' },
   noConditions: { en: 'No current conditions reported', fr: 'Aucune condition actuelle rapportée' },
   noAqhiQc: { en: 'No federal AQHI — Québec runs its own IQA network', fr: 'Pas de CAS fédérale — le Québec exploite son propre réseau IQA' },
@@ -460,6 +464,31 @@ const PROVINCE_MAP = { 'Ontario': 'ON', 'Quebec': 'QC', 'Québec': 'QC', 'Britis
 function provinceFromTitle(title) {
   for (const k in PROVINCE_MAP) { if (String(title || '').indexOf(k) !== -1) return PROVINCE_MAP[k]; }
   return null;
+}
+/* CMA (or province) -> StatCan LFS vector id for the CURRENT unemployment rate
+   (table 14-10-0459, seasonally adjusted 3-month moving average). Resolved
+   once via WDS getSeriesInfoFromCubePidCoord and pinned here. */
+const LFS_VECTORS = {"Fredericton, New Brunswick":"1643278438","Quebec":"1643278494","Saguenay, Quebec":"1643278550","Québec, Quebec":"1643278606","Sherbrooke, Quebec":"1643278662","Trois-Rivières, Quebec":"1643278718","Drummondville, Québec":"1643278774","Montréal, Quebec":"1643278830","Ontario":"1643278886","Ottawa-Gatineau, Ontario/Quebec":"1643278942","Newfoundland and Labrador":"1643277990","Ottawa-Gatineau, Quebec part, Ontario/Quebec":"1643278998","Ottawa-Gatineau, Ontario part, Ontario/Quebec":"1643279054","Kingston, Ontario":"1643279110","Belleville - Quinte West, Ontario":"1643279166","Peterborough, Ontario":"1643279222","Oshawa, Ontario":"1643279278","Toronto, Ontario":"1643279334","St. Catharines-Niagara, Ontario":"1643279446","Brantford, Ontario":"1643279558","London, Ontario":"1643279670","Greater Sudbury, Ontario":"1643279838","Manitoba":"1643279950","Saskatchewan":"1643280062","Saskatoon, Saskatchewan":"1643280174","Lethbridge, Alberta":"1643280286","Edmonton, Alberta":"1643280454","Kelowna, British Columbia":"1643280566","Chilliwack, British Columbia":"1643280678","Victoria, British Columbia":"1643280846","Halifax, Nova Scotia":"1643278214","Saint John, New Brunswick":"1643278382","Hamilton, Ontario":"1643279390","Kitchener-Cambridge-Waterloo, Ontario":"1643279502","St. John's, Newfoundland and Labrador":"1643278046","Guelph, Ontario":"1643279614","Windsor, Ontario":"1643279726","Barrie, Ontario":"1643279782","Thunder Bay, Ontario":"1643279894","Winnipeg, Manitoba":"1643280006","Prince Edward Island":"1643278102","Regina, Saskatchewan":"1643280118","Alberta":"1643280230","Calgary, Alberta":"1643280342","Red Deer, Alberta":"1643280398","British Columbia":"1643280510","Kamloops, British Columbia":"1643280622","Nova Scotia":"1643278158","Abbotsford-Mission, British Columbia":"1643280734","Vancouver, British Columbia":"1643280790","Nanaimo, British Columbia":"1643280902","New Brunswick":"1643278270","Moncton, New Brunswick":"1643278326"};
+const PROV_FULL = { ON: 'Ontario', QC: 'Quebec', BC: 'British Columbia', AB: 'Alberta',
+  MB: 'Manitoba', SK: 'Saskatchewan', NS: 'Nova Scotia', NB: 'New Brunswick',
+  NL: 'Newfoundland and Labrador', PE: 'Prince Edward Island' };
+function lfsFor(city, province) {
+  const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const cityN = norm(city);
+  let best = null;
+  for (const k in LFS_VECTORS) {
+    const first = norm(k.split(',')[0]);
+    if (!cityN || (first !== cityN && first.indexOf(cityN) === -1 && cityN.indexOf(first) === -1)) continue;
+    if (k.indexOf(' part,') !== -1) {           /* Ottawa-Gatineau halves */
+      if (province === 'ON' && k.indexOf('Ontario part') !== -1) { best = k; break; }
+      if (province === 'QC' && k.indexOf('Quebec part') !== -1) { best = k; break; }
+      continue;
+    }
+    if (k.indexOf(',') === -1) continue;        /* provinces are the fallback, not a match */
+    if (!best) best = k;
+  }
+  if (!best && PROV_FULL[province] && LFS_VECTORS[PROV_FULL[province]]) best = PROV_FULL[province];
+  return best ? { cma: best, vector: LFS_VECTORS[best] } : { cma: null, vector: null };
 }
 
 let lang = 'en';
@@ -671,7 +700,7 @@ function renderDossier() {
       <div class="tile"><div class="v">${fmt$(r.medianDwellingValue)}</div><div class="k">${t('dwellingLabel')}</div></div>
       <div class="tile hot"><div class="v">${afford == null ? '—' : fmtN(afford) + ' ' + t('yrs')}</div><div class="k">${t('affordLabel')}</div></div>
       <div class="tile"><div class="v">${r.medianAge == null ? '—' : fmtN(r.medianAge)}</div><div class="k">${t('ageLabel')}</div></div>
-      <div class="tile"><div class="v">${r.unemploymentRate == null ? '—' : fmtN(r.unemploymentRate) + ' %'}</div><div class="k">${t('unempLabel')}</div></div>
+      <div class="tile" title="${escapeHtml(r.unemploymentArea || '')}"><div class="v">${r.unemploymentRate == null ? '—' : fmtN(r.unemploymentRate) + ' %'}</div><div class="k">${t('unempLabel')}${r.unemploymentMonth ? ' · ' + escapeHtml(String(r.unemploymentMonth).slice(0, 7)) : ''}</div></div>
     </div>
     <div class="liverow">
       ${r.temperatureC != null ? `<span class="pill"><b>${fmtN(r.temperatureC)} °C</b>${cond ? '&nbsp;· ' + escapeHtml(cond) : ''}</span>` : `<span class="pill covnote">${t('noConditions')}</span>`}
@@ -885,12 +914,14 @@ async function addPlace() {
       const lon = r.centroid.coordinates[0], lat = r.centroid.coordinates[1];
       const csdB = (r.boundaries_centroid || []).find(b => b.boundary_set_name === 'Census subdivision');
       const mp = (r.representatives_centroid || []).find(x => x.elected_office === 'MP');
+      const lfs = lfsFor(r.city, r.province);
       data = placeData({ lon, lat, data: {
         name: label || (r.city ? r.city.charAt(0) + r.city.slice(1).toLowerCase() + ' ' + code : code),
         postalCode: code, city: r.city, province: r.province,
         riding: mp ? mp.district_name : null,
         csd: csdB ? csdB.external_id : null,
-        dguid: csdB ? '2021A0005' + csdB.external_id : null
+        dguid: csdB ? '2021A0005' + csdB.external_id : null,
+        lfsVector: lfs.vector, lfsCma: lfs.cma
       }});
     } else {
       msg.textContent = t('searchingName') + raw + ' …';
@@ -907,14 +938,17 @@ async function addPlace() {
       ]);
       const csdB = asObjects(csdRes)[0];
       const mp = asObjects(mpRes)[0];
+      const prov = provinceFromTitle(best.title);
+      const lfs = lfsFor(csdB ? csdB.name : String(best.title || raw).split(',')[0], prov);
       data = placeData({ lon, lat, data: {
         name: label || String(best.title || raw).split(',')[0],
         postalCode: null,
         city: csdB ? String(csdB.name || '').toUpperCase() : null,
-        province: provinceFromTitle(best.title),
+        province: prov,
         riding: mp ? mp.district_name : null,
         csd: csdB ? csdB.external_id : null,
-        dguid: csdB ? '2021A0005' + csdB.external_id : null
+        dguid: csdB ? '2021A0005' + csdB.external_id : null,
+        lfsVector: lfs.vector, lfsCma: lfs.cma
       }});
     }
     await gateway.repository.createEntry({ type: 'CaPlace', data: data });

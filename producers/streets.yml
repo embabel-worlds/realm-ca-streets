@@ -208,16 +208,21 @@
     area: structures.0.dimensions.series.1.values.0.name
   cache: { kind: ttl, seconds: 604800 }
 
-- name: censusUnemployment
+# CURRENT unemployment — StatCan LFS by CMA (or province), monthly. Keyed on
+# the WDS vector id stored on the place. The static far-future end date is
+# accepted by the source, so the args never go stale; a day's cache means the
+# monthly release lands within a day.
+- name: lfsMonthly
   kind: remote
-  operation: profileUnemployment
-  records: "$.data"
-  keyArgs: [dguid]
+  operation: lfsVectorRange
+  records: "$[*].object.vectorDataPoint[*]"
+  keyArg: vectorIds
   echoKeyAs: key
   maxKeysPerCall: 1
   args:
-    format: jsondata
+    startRefPeriod: "2024-12-01"
+    endReferencePeriod: "2035-12-01"
   project:
-    value: dataSets.0.series.0:0:0:0:0.observations.0.0
-    area: structures.0.dimensions.series.1.values.0.name
-  cache: { kind: ttl, seconds: 604800 }
+    month: refPer
+    rate: value
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }

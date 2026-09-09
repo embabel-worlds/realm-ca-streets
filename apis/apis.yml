@@ -48,10 +48,26 @@
     - weatherAlerts
     - cityWeather
 
+# Statistics Canada Labour Force Survey vectors (WDS) — CURRENT monthly
+# unemployment by census metropolitan area (or province as fallback),
+# seasonally adjusted three-month moving average. Replaces the 2021 census
+# unemployment figure, which was the May-2021 pandemic reference week.
+- url: statcan-lfs.json
+  name: statcan_lfs
+  type: openapi
+  auth: none
+  # WDS gzips when the client advertises it, and the engine's HTTP client does
+  # not decompress — identity keeps the body readable.
+  headers:
+    Accept-Encoding: "identity"
+    User-Agent: "EmbabelRealmCaStreets/0.1 (https://github.com/embabel-worlds/realm-ca-streets)"
+  operation-ids:
+    - lfsVectorRange
+
 # Statistics Canada Census Profile 2021 (SDMX REST) — one figure per call for a
 # census subdivision, addressed by DGUID. Official, keyless. The characteristic
 # id is pinned INSIDE each operation's path (population 1, median age 40,
-# median household income 229, median dwelling value 1474, unemployment 2230)
+# median household income 229, median dwelling value 1474)
 # because the engine keys a producer on exactly one value — the DGUID.
 - url: census-profile.json
   name: census_profile
@@ -62,4 +78,3 @@
     - profileMedianAge
     - profileHouseholdIncome
     - profileDwellingValue
-    - profileUnemployment

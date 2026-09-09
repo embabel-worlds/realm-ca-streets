@@ -18,7 +18,8 @@ every stored field is a JOIN KEY into a different national dataset:
 |---|---|---|
 | `latlon` (`45.42,-75.69`) | House of Commons sitting MP (via Represent) | `HAS_SEAT` |
 | `postalCode` (UPPERCASE, no space; null for name-added places) | ALL elected reps — MP, MPP/MLA, mayor, councillors | `HAS_REP` |
-| `dguid` (`2021A0005` + CSD) | StatCan Census Profile 2021 — population, median age, household income, dwelling value, unemployment | `HAS_POPULATION` `HAS_MEDIAN_AGE` `HAS_HOUSEHOLD_INCOME` `HAS_DWELLING_VALUE` `HAS_UNEMPLOYMENT` |
+| `dguid` (`2021A0005` + CSD) | StatCan Census Profile 2021 — population, median age, household income, dwelling value | `HAS_POPULATION` `HAS_MEDIAN_AGE` `HAS_HOUSEHOLD_INCOME` `HAS_DWELLING_VALUE` |
+| `lfsVector` (WDS vector id, CMA or province) | StatCan Labour Force Survey — CURRENT monthly unemployment rate, seasonally adjusted 3-month moving average | `HAS_UNEMPLOYMENT_NOW` |
 | `bboxWide` (±0.7°) | Environment Canada AQHI, latest per station | `HAS_AIR` |
 | `bbox` (±0.2°) | Water Survey river gauges, real-time | `HAS_RIVER` |
 | `bbox` | Environment Canada ACTIVE weather alerts | `HAS_ALERT` |
@@ -93,9 +94,15 @@ wrong key returns a confident answer about the wrong place.
 - **Census figures describe the WHOLE MUNICIPALITY** (census subdivision).
   Toronto's median household income covers 2.8M people — say "the
   municipality's median", never "this street earns". Incomes are 2020 (the
-  census asks about the prior year); unemployment is the census reference week
-  of May 2021 — mid-pandemic — so never compare it to today's rate without
-  saying so.
+  census asks about the prior year).
+- **Unemployment is LIVE, not census.** The 2021 census unemployment figure
+  (May-2021 pandemic reference week) was removed; HAS_UNEMPLOYMENT_NOW carries
+  the LFS monthly rate for the place's census metropolitan area — or its
+  PROVINCE where no CMA covers it (`lfsCma` says which) — seasonally adjusted,
+  three-month moving average. Always state the month and the geography.
+  Resolve a new place's `lfsVector` from table 14-10-0459: WDS
+  getSeriesInfoFromCubePidCoord, coordinate `{geoMemberId}.5.1.1.0.0.0.0.0.0`
+  (the Maple Lens app carries the full CMA→vector map).
 - **AQHI absence is coverage, not clean air.** Stations exist near cities and
   larger towns — and the federal AQHI network does NOT include Québec, which
   runs its own IQA network. A Montréal place with no AQHI rows is correct.

@@ -14,7 +14,7 @@
 # paint. Alert counts come from AlertsAtMyMPs, which owns that cost.
 
 - name: CaPlaceDossier
-  description: The whole picture per watched Canadian place, one row each — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value and unemployment for the municipality, worst current AQHI nearby, and current temperature and conditions (English and French). Active alerts are NOT in this row — run AlertsAtMyMPs for those; keeping the short-TTL alert join out keeps this view fast.
+  description: The whole picture per watched Canadian place, one row each — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value for the municipality, the CURRENT unemployment rate for its census metropolitan area (StatCan LFS, latest month, seasonally adjusted — with the month and area it describes), worst current AQHI nearby, and current temperature and conditions (English and French). Active alerts are NOT in this row — run AlertsAtMyMPs for those; keeping the short-TTL alert join out keeps this view fast.
   params:
     limit:
       type: int
@@ -32,19 +32,22 @@
     WITH p, s, population, medianAge, max(toFloat(inc.value)) AS medianHouseholdIncome
     OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(dv:CaDwellingValue)
     WITH p, s, population, medianAge, medianHouseholdIncome, max(toFloat(dv.value)) AS medianDwellingValue
-    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(un:CaUnemployment)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, max(toFloat(un.value)) AS unemploymentRate
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]->(un0:CaUnemploymentNow)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, un0 ORDER BY un0.month DESC
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, collect(un0)[0] AS un
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, toFloat(un.rate) AS unemploymentRate, un.month AS unemploymentMonth
     OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, max(toFloat(a.aqhi)) AS worstAqhi
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, max(toFloat(a.aqhi)) AS worstAqhi
     OPTIONAL MATCH (p)-[:HAS_WEATHER]->(w0:LocalWeather)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, worstAqhi, collect(w0)[0] AS w
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, collect(w0)[0] AS w
     RETURN p.name AS place, p.city AS city, p.province AS province,
            p.postalCode AS postalCode,
            toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
            s.riding AS riding, s.mp AS mp, s.party AS party,
            s.photo AS photo, s.email AS email, s.gender AS gender,
            population, medianAge, medianHouseholdIncome, medianDwellingValue,
-           unemploymentRate, worstAqhi,
+           unemploymentRate, unemploymentMonth, p.lfsCma AS unemploymentArea,
+           worstAqhi,
            toFloat(w.temperature) AS temperatureC, w.condition AS condition,
            w.conditionFr AS conditionFr
     ORDER BY place LIMIT $limit
@@ -99,7 +102,7 @@
     ORDER BY avgMedianHouseholdIncome DESC LIMIT $limit
 
 - name: PartyLedger
-  description: The full census ledger by MP party across watched places — average median household income, average median dwelling value, average unemployment rate and average median age per party. StatCan's numbers under Parliament's colours; averages of municipal medians over YOUR watchlist.
+  description: The full census ledger by MP party across watched places — average median household income, average median dwelling value, average CURRENT unemployment rate (LFS, latest month, CMA level) and average median age per party. StatCan's numbers under Parliament's colours; averages of municipal medians over YOUR watchlist.
   params:
     limit:
       type: int
@@ -111,8 +114,10 @@
     WITH p, s, max(toFloat(i.value)) AS income
     OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
     WITH p, s, income, max(toFloat(d.value)) AS dwelling
-    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(u:CaUnemployment)
-    WITH p, s, income, dwelling, max(toFloat(u.value)) AS unemployment
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]->(u0:CaUnemploymentNow)
+    WITH p, s, income, dwelling, u0 ORDER BY u0.month DESC
+    WITH p, s, income, dwelling, collect(u0)[0] AS u
+    WITH p, s, income, dwelling, toFloat(u.rate) AS unemployment
     OPTIONAL MATCH (p)-[:HAS_MEDIAN_AGE]->(ag:CaMedianAge)
     WITH s.party AS party, income, dwelling, unemployment, max(toFloat(ag.value)) AS medianAge
     RETURN party, count(*) AS places,
@@ -179,7 +184,7 @@
     LIMIT $limit
 
 - name: CensusLeague
-  description: Every census measure for every watched place in one comparable table — population, median age, median household income, median dwelling value, unemployment rate and the affordability ratio, ranked by income. All figures are 2021 Census municipal values (incomes 2020; unemployment is the May-2021 reference week).
+  description: Every census measure for every watched place in one comparable table — population, median age, median household income, median dwelling value, the CURRENT unemployment rate (StatCan LFS, latest month, CMA/province level) and the affordability ratio, ranked by income. Census figures are 2021 municipal values (incomes 2020); unemployment alone is live monthly data.
   params:
     limit:
       type: int
@@ -195,11 +200,13 @@
     WITH p, population, medianAge, max(toFloat(i.value)) AS income
     OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
     WITH p, population, medianAge, income, max(toFloat(d.value)) AS dwelling
-    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(u:CaUnemployment)
-    WITH p, population, medianAge, income, dwelling, max(toFloat(u.value)) AS unemployment
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT_NOW]->(u0:CaUnemploymentNow)
+    WITH p, population, medianAge, income, dwelling, u0 ORDER BY u0.month DESC
+    WITH p, population, medianAge, income, dwelling, collect(u0)[0] AS u
     RETURN p.name AS place, p.city AS city, p.province AS province,
            population, medianAge, income AS medianHouseholdIncome,
-           dwelling AS medianDwellingValue, unemployment AS unemploymentRate,
+           dwelling AS medianDwellingValue,
+           toFloat(u.rate) AS unemploymentRate, u.month AS unemploymentMonth,
            CASE WHEN income IS NULL OR income = 0 OR dwelling IS NULL THEN null
                 ELSE round(10.0 * dwelling / income) / 10.0 END AS yearsOfIncomePerHome
     ORDER BY income IS NULL, income DESC LIMIT $limit
