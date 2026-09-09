@@ -14,7 +14,7 @@
 # paint. Alert counts come from AlertsAtMyMPs, which owns that cost.
 
 - name: CaPlaceDossier
-  description: The whole picture per watched Canadian place, one row each — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value for the municipality, the CURRENT unemployment rate for its census metropolitan area (StatCan LFS, latest month, seasonally adjusted — with the month and area it describes), worst current AQHI nearby, and current temperature and conditions (English and French). Active alerts are NOT in this row — run AlertsAtMyMPs for those; keeping the short-TTL alert join out keeps this view fast.
+  description: The whole picture per watched Canadian place, one row each — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value for the municipality, the CURRENT unemployment rate for its census metropolitan area (StatCan LFS, latest month, seasonally adjusted — with the month and area it describes), the CMA's police-reported Crime Severity Index (annual, latest year), its July-1 population estimate, the latest monthly average gas price, worst current AQHI nearby, and current temperature and conditions (English and French). Active alerts are NOT in this row — run AlertsAtMyMPs for those; keeping the short-TTL alert join out keeps this view fast.
   params:
     limit:
       type: int
@@ -38,8 +38,17 @@
     WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, toFloat(un.rate) AS unemploymentRate, un.month AS unemploymentMonth
     OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
     WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, max(toFloat(a.aqhi)) AS worstAqhi
+    OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(cs0:CaCrimeSeverity)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs0 ORDER BY cs0.year DESC
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, collect(cs0)[0] AS cs
+    OPTIONAL MATCH (p)-[:HAS_POP_NOW]->(pn0:CaPopulationNow)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn0 ORDER BY pn0.year DESC
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, collect(pn0)[0] AS pn
+    OPTIONAL MATCH (p)-[:HAS_GAS]->(g0:CaGasPrice)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn, g0 ORDER BY g0.month DESC
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn, collect(g0)[0] AS g
     OPTIONAL MATCH (p)-[:HAS_WEATHER]->(w0:LocalWeather)
-    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, collect(w0)[0] AS w
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, unemploymentMonth, worstAqhi, cs, pn, g, collect(w0)[0] AS w
     RETURN p.name AS place, p.city AS city, p.province AS province,
            p.postalCode AS postalCode,
            toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
@@ -47,6 +56,9 @@
            s.photo AS photo, s.email AS email, s.gender AS gender,
            population, medianAge, medianHouseholdIncome, medianDwellingValue,
            unemploymentRate, unemploymentMonth, p.lfsCma AS unemploymentArea,
+           toFloat(cs.csi) AS crimeSeverityIndex, cs.year AS crimeSeverityYear, p.csiArea AS crimeSeverityArea,
+           toFloat(pn.population) AS populationNow, pn.year AS populationNowYear, p.popArea AS populationNowArea,
+           toFloat(g.centsPerLitre) AS gasCentsPerLitre, g.month AS gasMonth,
            worstAqhi,
            toFloat(w.temperature) AS temperatureC, w.condition AS condition,
            w.conditionFr AS conditionFr
@@ -246,6 +258,83 @@
     ORDER BY CASE al.alertType WHEN 'warning' THEN 0 WHEN 'watch' THEN 1
                                WHEN 'advisory' THEN 2 ELSE 3 END, place
     LIMIT $limit
+
+- name: CaCrimeVsIncome
+  description: Each watched place's police-reported Crime Severity Index (latest year, CMA level, Canada-2006=100 — directly comparable across areas) beside the municipality's median household income and the sitting MP's party — StatCan's crime and income series joined to the House of Commons record at your places, ranked most-severe first. CSI is annual (latest 2025); income is Census 2020.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(c0:CaCrimeSeverity)
+    WITH p, c0 ORDER BY c0.year DESC
+    WITH p, collect(c0)[0] AS c
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH p, c, max(toFloat(i.value)) AS income
+    OPTIONAL MATCH (p)-[:HAS_SEAT]->(s0:CaSeat)
+    WITH p, c, income, collect(s0)[0] AS s
+    RETURN p.name AS place, p.csiArea AS area, toFloat(c.csi) AS crimeSeverityIndex,
+           c.year AS csiYear, income AS medianHouseholdIncome, s.mp AS mp, s.party AS party
+    ORDER BY crimeSeverityIndex IS NULL, crimeSeverityIndex DESC LIMIT $limit
+
+- name: CaCrimeByParty
+  description: Average Crime Severity Index (latest year per place, CMA level) grouped by the party of each place's sitting MP — 'is crime more severe where party X holds the seat', across YOUR watchlist. An association over your places, never a causal claim about any member.
+  params:
+    limit:
+      type: int
+      default: 10
+      description: "Maximum parties."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+    OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(c0:CaCrimeSeverity)
+    WITH p, s, c0 ORDER BY c0.year DESC
+    WITH p, s, collect(c0)[0] AS c
+    WITH s.party AS party, toFloat(c.csi) AS csi
+    WHERE csi IS NOT NULL
+    RETURN party, count(*) AS places, round(avg(csi) * 10) / 10.0 AS avgCrimeSeverityIndex,
+           round(min(csi) * 10) / 10.0 AS lowest, round(max(csi) * 10) / 10.0 AS highest
+    ORDER BY avgCrimeSeverityIndex DESC LIMIT $limit
+
+- name: HousingHeat
+  description: Where new-home prices are moving fastest — each watched place's New Housing Price Index (latest month) with its year-over-year percent change, beside the census median dwelling value and the sitting MP's party, hottest first. The index level is StatCan's; the year-over-year arithmetic is computed in this view from the same series.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_NHPI]->(n0:CaHousingPriceIndex)
+    WITH p, n0 ORDER BY n0.month DESC
+    WITH p, collect(n0) AS series
+    WITH p, series[0] AS latest, series[12] AS yearAgo
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    WITH p, latest, yearAgo, max(toFloat(d.value)) AS dwelling
+    OPTIONAL MATCH (p)-[:HAS_SEAT]->(s0:CaSeat)
+    WITH p, latest, yearAgo, dwelling, collect(s0)[0] AS s
+    RETURN p.name AS place, p.nhpiArea AS area,
+           toFloat(latest.index) AS nhpiLatest, latest.month AS month,
+           CASE WHEN yearAgo IS NULL OR toFloat(yearAgo.index) = 0 THEN null
+                ELSE round((toFloat(latest.index) / toFloat(yearAgo.index) - 1) * 1000) / 10.0 END AS yoyPct,
+           dwelling AS medianDwellingValue, s.mp AS mp, s.party AS party
+    ORDER BY yoyPct IS NULL, yoyPct DESC LIMIT $limit
+
+- name: GasAtMyPlaces
+  description: The latest monthly average pump price (regular unleaded, self-serve, cents per litre) at each watched place's city, cheapest first — StatCan table 18-10-0001. Coverage is 18 large centres; a missing place has no covered city nearby, not free gas.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_GAS]->(g0:CaGasPrice)
+    WITH p, g0 ORDER BY g0.month DESC
+    WITH p, collect(g0)[0] AS g
+    RETURN p.name AS place, p.gasArea AS area,
+           toFloat(g.centsPerLitre) AS centsPerLitre, g.month AS month
+    ORDER BY centsPerLitre ASC LIMIT $limit
 
 # ── Single-source live views ─────────────────────────────────────────────────
 

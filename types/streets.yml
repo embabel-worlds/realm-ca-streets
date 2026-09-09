@@ -55,6 +55,30 @@
     lfsCma:
       type: string
       description: "The LFS geography the vector describes, e.g. 'Toronto, Ontario' or just 'Ontario' when no CMA covers the place — always show it beside the rate."
+    csiVector:
+      type: string
+      description: "WDS vector id for the place's Crime Severity Index series (table 35-10-0026, CMA level) — the HAS_CRIME_SEVERITY key."
+    csiArea:
+      type: string
+      description: "The geography the CSI vector describes."
+    nhpiVector:
+      type: string
+      description: "WDS vector id for the place's New Housing Price Index, total house+land (table 18-10-0205, CMA level) — the HAS_NHPI key."
+    nhpiArea:
+      type: string
+      description: "The geography the NHPI vector describes."
+    gasVector:
+      type: string
+      description: "WDS vector id for the place's monthly average regular self-serve gasoline price (table 18-10-0001, city level) — the HAS_GAS key."
+    gasArea:
+      type: string
+      description: "The geography the gas vector describes."
+    popVector:
+      type: string
+      description: "WDS vector id for the place's July-1 population estimate (table 17-10-0148, CMA/CA level) — the HAS_POP_NOW key."
+    popArea:
+      type: string
+      description: "The geography the population vector describes."
     notes:
       type: string
       description: "Why the user watches this place — free text, optional."
@@ -306,3 +330,72 @@
     rate:
       type: number
       description: "Unemployment rate, %, three-month moving average, seasonally adjusted."
+
+# ── The StatCan vector axis — four more series through the LFS pipe ──────────
+- name: CaCrimeSeverity
+  description: "One YEAR of the police-reported Crime Severity Index for the watched place's census metropolitan area (StatCan table 35-10-0026). ANNUAL, latest 2025; the index is national (Canada 2006 = 100), so areas are directly comparable — Canada's honest substitute for street-level crime data, which it does not publish. Reached via HAS_CRIME_SEVERITY; take the latest year, keep the series for trends."
+  virtualJoins:
+    - anchorLabel: CaPlace
+      relationship: HAS_CRIME_SEVERITY
+      keyField: csiVector
+      recordKeyField: key
+      producer: caCrimeSeverity
+      maxAnchors: 15
+      description: "The CMA's annual crime severity — ORDER BY year DESC and take the head for 'how much crime'."
+  properties:
+    key: "The WDS vector id — the join link."
+    year: "The reference year, YYYY-01-01."
+    csi:
+      type: number
+      description: "Crime Severity Index — Canada 2006 = 100; higher is more/more-serious police-reported crime."
+
+- name: CaHousingPriceIndex
+  description: "One MONTH of the New Housing Price Index (total house and land) for the watched place's census metropolitan area (StatCan table 18-10-0205). Monthly; an INDEX, so the change is the story — compute year-over-year from the series. Reached via HAS_NHPI."
+  virtualJoins:
+    - anchorLabel: CaPlace
+      relationship: HAS_NHPI
+      keyField: nhpiVector
+      recordKeyField: key
+      producer: caNhpi
+      maxAnchors: 15
+      description: "The CMA's monthly new-home price index — latest for level, latest vs 12 months ago for direction."
+  properties:
+    key: "The WDS vector id — the join link."
+    month: "The index month, YYYY-MM-01."
+    index:
+      type: number
+      description: "New Housing Price Index, total (house and land)."
+
+- name: CaGasPrice
+  description: "One MONTH's average retail price of regular unleaded gasoline (self-serve) for the watched place's city (StatCan table 18-10-0001), cents per litre. Reached via HAS_GAS; take the latest month. City coverage is 18 large centres — no vector means no covered city nearby, not free gas."
+  virtualJoins:
+    - anchorLabel: CaPlace
+      relationship: HAS_GAS
+      keyField: gasVector
+      recordKeyField: key
+      producer: caGasPrice
+      maxAnchors: 15
+      description: "Monthly average pump price at the place's city — latest month is 'gas at my places'."
+  properties:
+    key: "The WDS vector id — the join link."
+    month: "The price month, YYYY-MM-01."
+    centsPerLitre:
+      type: number
+      description: "Average retail price, cents per litre, regular unleaded self-serve."
+
+- name: CaPopulationNow
+  description: "A July-1 population ESTIMATE for the watched place's census metropolitan area or agglomeration (StatCan table 17-10-0148) — annual, latest 2025, and the CMA is a WIDER geography than the census-subdivision population (Toronto CMA ~7.1M vs Toronto CSD ~2.8M): label which one you are quoting. Reached via HAS_POP_NOW; take the latest year."
+  virtualJoins:
+    - anchorLabel: CaPlace
+      relationship: HAS_POP_NOW
+      keyField: popVector
+      recordKeyField: key
+      producer: caPopEstimate
+      maxAnchors: 15
+      description: "The CMA's population estimate per year since 2021 — latest for 'how many people now', the series for growth."
+  properties:
+    key: "The WDS vector id — the join link."
+    year: "The estimate's reference date, YYYY-01-01 (July 1 of that year)."
+    population:
+      type: number
+      description: "Estimated persons, whole CMA/CA."

@@ -20,6 +20,10 @@ every stored field is a JOIN KEY into a different national dataset:
 | `postalCode` (UPPERCASE, no space; null for name-added places) | ALL elected reps — MP, MPP/MLA, mayor, councillors | `HAS_REP` |
 | `dguid` (`2021A0005` + CSD) | StatCan Census Profile 2021 — population, median age, household income, dwelling value | `HAS_POPULATION` `HAS_MEDIAN_AGE` `HAS_HOUSEHOLD_INCOME` `HAS_DWELLING_VALUE` |
 | `lfsVector` (WDS vector id, CMA or province) | StatCan Labour Force Survey — CURRENT monthly unemployment rate, seasonally adjusted 3-month moving average | `HAS_UNEMPLOYMENT_NOW` |
+| `csiVector` (WDS, CMA) | Crime Severity Index — ANNUAL, latest 2025, Canada-2006=100, comparable across areas | `HAS_CRIME_SEVERITY` |
+| `nhpiVector` (WDS, CMA) | New Housing Price Index — monthly; the CHANGE is the story | `HAS_NHPI` |
+| `gasVector` (WDS, 18 cities) | Average pump price, regular self-serve, ¢/L, monthly | `HAS_GAS` |
+| `popVector` (WDS, CMA/CA) | July-1 population ESTIMATE — annual, latest 2025; CMA is WIDER than the census-subdivision population | `HAS_POP_NOW` |
 | `bboxWide` (±0.7°) | Environment Canada AQHI, latest per station | `HAS_AIR` |
 | `bbox` (±0.2°) | Water Survey river gauges, real-time | `HAS_RIVER` |
 | `bbox` | Environment Canada ACTIVE weather alerts | `HAS_ALERT` |
@@ -49,7 +53,10 @@ place) · `CaIncomeByParty` (StatCan income under Parliament's colours) ·
 `PartyLedger` · `SeatsAndFortunes` (riding and MP beside census fortunes) ·
 `SplitRepresentation` (places whose federal and provincial reps come from
 different political families) · `AffordabilityGap` (years of income per home) ·
-`AirVsIncome` · `AlertsAtMyMPs` (live alerts joined to sitting MPs, bilingual).
+`AirVsIncome` · `AlertsAtMyMPs` (live alerts joined to sitting MPs, bilingual) ·
+`CaCrimeVsIncome` (crime severity beside income and the MP's party) ·
+`CaCrimeByParty` · `HousingHeat` (new-home price index with year-over-year
+change, beside dwelling values and party) · `GasAtMyPlaces`.
 Single-source: `MorningCanada` (the live face of every place at one instant —
 the morning briefing) · `CensusLeague` (every census measure, one table) ·
 `WhoRepresentsMe` · `SeatsAtMyPlaces` · `AirQualityNow` · `RiversNearMe` ·
@@ -103,6 +110,12 @@ wrong key returns a confident answer about the wrong place.
   Resolve a new place's `lfsVector` from table 14-10-0459: WDS
   getSeriesInfoFromCubePidCoord, coordinate `{geoMemberId}.5.1.1.0.0.0.0.0.0`
   (the Maple Lens app carries the full CMA→vector map).
+- **The other StatCan vectors follow the same pattern** — csiVector (35-10-0026
+  coord `{geo}.1.0…`), nhpiVector (18-10-0205 `{geo}.1.0…`), gasVector
+  (18-10-0001 `{geo}.2.0…`), popVector (17-10-0148 `{geo}.1.1.0…`); the app
+  carries all the maps. CSI is an index (Canada 2006 = 100) and IS comparable
+  across areas; NHPI is an index whose change matters; the population estimate
+  covers the WHOLE CMA — label which geography every figure describes.
 - **AQHI absence is coverage, not clean air.** Stations exist near cities and
   larger towns — and the federal AQHI network does NOT include Québec, which
   runs its own IQA network. A Montréal place with no AQHI rows is correct.

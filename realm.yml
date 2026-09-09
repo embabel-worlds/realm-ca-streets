@@ -14,7 +14,7 @@ description: |
   under the leaf, with a loon on the water.
 
   No API keys and no accounts — the realm works the moment it is installed.
-version: 0.1.2
+version: 0.1.3
 author: rod
 tags:
   - canada
@@ -42,3 +42,7 @@ exports:
   - CaHouseholdIncome
   - CaDwellingValue
   - CaUnemploymentNow
+  - CaCrimeSeverity
+  - CaHousingPriceIndex
+  - CaGasPrice
+  - CaPopulationNow

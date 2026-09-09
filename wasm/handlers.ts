@@ -54,9 +54,18 @@ export async function warmLiveFeeds(args: { limit?: number }, ctx: any) {
     WITH p, seat, reps, pop, age, income, dwelling, unemployment, alerts, count(w) AS weatherSites
     OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
     WITH p, seat, reps, pop, age, income, dwelling, unemployment, alerts, weatherSites, count(a) AS airStations
+    OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(x1:CaCrimeSeverity)
+    WITH p, seat, reps, pop, age, income, dwelling, unemployment, alerts, weatherSites, airStations, count(x1) AS csiYears
+    OPTIONAL MATCH (p)-[:HAS_NHPI]->(x2:CaHousingPriceIndex)
+    WITH p, seat, reps, pop, age, income, dwelling, unemployment, alerts, weatherSites, airStations, csiYears, count(x2) AS nhpiMonths
+    OPTIONAL MATCH (p)-[:HAS_GAS]->(x3:CaGasPrice)
+    WITH p, seat, reps, pop, age, income, dwelling, unemployment, alerts, weatherSites, airStations, csiYears, nhpiMonths, count(x3) AS gasMonths
+    OPTIONAL MATCH (p)-[:HAS_POP_NOW]->(x4:CaPopulationNow)
+    WITH p, seat, reps, pop, age, income, dwelling, unemployment, alerts, weatherSites, airStations, csiYears, nhpiMonths, gasMonths, count(x4) AS popYears
     OPTIONAL MATCH (p)-[:HAS_RIVER]->(r:RiverReading)
     RETURN p.name AS place, seat, reps, pop, age, income, dwelling, unemployment,
-           alerts, weatherSites, airStations, count(r) AS riverReadings
+           alerts, weatherSites, airStations, csiYears, nhpiMonths, gasMonths, popYears,
+           count(r) AS riverReadings
     LIMIT 100
   `)
   return {

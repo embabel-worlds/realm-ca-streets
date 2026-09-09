@@ -215,6 +215,8 @@
 - name: lfsMonthly
   kind: remote
   operation: lfsVectorRange
+  # WDS throttles bursts (HTTP 430) — pace politely.
+  cost: { rate: "2/second" }
   records: "$[*].object.vectorDataPoint[*]"
   keyArg: vectorIds
   echoKeyAs: key
@@ -226,3 +228,83 @@
     month: refPer
     rate: value
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+
+# ── The StatCan vector axis (same generic operation as LFS) ─────────────────
+# Four more per-place series through the proven pipe: resolve the vector once
+# when the place is added, GET the range, take the latest in views. All use
+# lfsVectorRange (getDataFromVectorByReferencePeriodRange) — no new API, no
+# first-load mounting risk. records uses the $[*].x[*] nesting the evaluator
+# supports (embabel/me#1156); schema and gzip notes: #1154, #1155.
+
+# Police-reported Crime Severity Index by CMA — ANNUAL, latest 2025. The index
+# is national (Canada 2006 = 100), so areas ARE comparable, unlike river levels.
+- name: caCrimeSeverity
+  kind: remote
+  operation: lfsVectorRange
+  # WDS throttles bursts (HTTP 430) — pace politely.
+  cost: { rate: "2/second" }
+  records: "$[*].object.vectorDataPoint[*]"
+  keyArg: vectorIds
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    startRefPeriod: "2018-01-01"
+    endReferencePeriod: "2035-12-01"
+  project:
+    year: refPer
+    csi: value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
+
+# New Housing Price Index by CMA — monthly. An index: the CHANGE is the story.
+- name: caNhpi
+  kind: remote
+  operation: lfsVectorRange
+  # WDS throttles bursts (HTTP 430) — pace politely.
+  cost: { rate: "2/second" }
+  records: "$[*].object.vectorDataPoint[*]"
+  keyArg: vectorIds
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    startRefPeriod: "2024-06-01"
+    endReferencePeriod: "2035-12-01"
+  project:
+    month: refPer
+    index: value
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+
+# Average retail price of regular unleaded (self-serve), cents/litre, monthly.
+- name: caGasPrice
+  kind: remote
+  operation: lfsVectorRange
+  # WDS throttles bursts (HTTP 430) — pace politely.
+  cost: { rate: "2/second" }
+  records: "$[*].object.vectorDataPoint[*]"
+  keyArg: vectorIds
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    startRefPeriod: "2025-06-01"
+    endReferencePeriod: "2035-12-01"
+  project:
+    month: refPer
+    centsPerLitre: value
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
+
+# Population estimates, July 1, by CMA/CA — annual, fresher than Census 2021.
+- name: caPopEstimate
+  kind: remote
+  operation: lfsVectorRange
+  # WDS throttles bursts (HTTP 430) — pace politely.
+  cost: { rate: "2/second" }
+  records: "$[*].object.vectorDataPoint[*]"
+  keyArg: vectorIds
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    startRefPeriod: "2021-01-01"
+    endReferencePeriod: "2035-12-01"
+  project:
+    year: refPer
+    population: value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
