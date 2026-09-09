@@ -362,7 +362,7 @@
       relationship: HAS_NHPI
       keyField: nhpiVector
       recordKeyField: key
-      producer: caNhpi
+      producer: caNhpiSeries
       maxAnchors: 15
       description: "The CMA's monthly new-home price index — latest for level, latest vs 12 months ago for direction."
   properties:

@@ -256,7 +256,7 @@
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 # New Housing Price Index by CMA — monthly. An index: the CHANGE is the story.
-- name: caNhpi
+- name: caNhpiSeries
   kind: remote
   operation: lfsVectorRange
   # WDS throttles bursts (HTTP 430) — pace politely.
@@ -266,7 +266,7 @@
   echoKeyAs: key
   maxKeysPerCall: 1
   args:
-    startRefPeriod: "2024-06-01"
+    startRefPeriod: "2021-01-01"
     endReferencePeriod: "2035-12-01"
   project:
     month: refPer

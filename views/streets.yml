@@ -408,6 +408,35 @@
            round((last.csi / first.csi - 1) * 1000) / 10.0 AS changePct
     ORDER BY changePct ASC LIMIT $limit
 
+- name: AffordabilityDrift
+  description: How affordability has MOVED since census day, per watched CMA — the census median dwelling value (owner-estimated, May 2021) carried forward by the New Housing Price Index (May 2021 to latest month) into an IMPLIED current value, divided by the census median household income into implied years-of-income now, beside the same ratio at census time. The census freezes values in 2021 and the NHPI tracks only NEW homes — so this is an ESTIMATE, computed here, labeled as such; every input is the publisher's own figure. No agency publishes a current affordability number at this level.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum areas."
+  cypher: |
+    MATCH (p:CaPlace)
+    WHERE p.nhpiVector IS NOT NULL
+    OPTIONAL MATCH (p)-[:HAS_NHPI]->(x:CaHousingPriceIndex)
+    WITH p, x ORDER BY x.month
+    WITH p, collect(x) AS series
+    WITH p, [y IN series WHERE y.month = '2021-05-01'][0] AS base, series[-1] AS latest
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    WITH p, base, latest, max(toFloat(d.value)) AS dwelling2021
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH DISTINCT p.nhpiArea AS area, base, latest, dwelling2021, max(toFloat(i.value)) AS income
+    WHERE base IS NOT NULL AND toFloat(base.index) > 0 AND dwelling2021 IS NOT NULL AND income > 0
+    WITH area, latest.month AS asOf,
+         round((toFloat(latest.index) / toFloat(base.index) - 1) * 1000) / 10.0 AS newHomePriceMovePct,
+         round(dwelling2021 * toFloat(latest.index) / toFloat(base.index)) AS impliedValueNow,
+         dwelling2021, income
+    RETURN area, asOf, newHomePriceMovePct, dwelling2021 AS censusMedianValue2021,
+           impliedValueNow,
+           round(10.0 * dwelling2021 / income) / 10.0 AS yearsOfIncomeAtCensus,
+           round(10.0 * impliedValueNow / income) / 10.0 AS impliedYearsOfIncomeNow
+    ORDER BY newHomePriceMovePct DESC LIMIT $limit
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada
