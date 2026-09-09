@@ -422,3 +422,47 @@
     starts:
       type: number
       description: "Housing starts that month, total units, whole CMA."
+
+# ── The national anchor (literal-seeded; nothing stored) ────────────────────
+- name: CaCmaSet
+  description: "A literal-seeded national anchor — MATCH (u:CaCmaSet {set:'canada'}) mints it per query so the WHOLE country's series hang off one node; nothing is persisted. The uk-streets UkDistricts pattern."
+  properties:
+    set:
+      type: string
+      description: "The set literal, always 'canada' — the key the national joins use."
+
+- name: CaCmaCsiNow
+  description: "One CMA's LATEST-year Crime Severity Index, from the national one-call fetch (all ~40 CMAs per read). Reached via MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_NOW]->(c). Rows carry the WDS vectorId; the CanadaCrimeOutliers view maps id to CMA name."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_CSI_NOW
+      keyField: set
+      recordKeyField: key
+      producer: nationalCsiNow
+      maxAnchors: 1
+      description: "Every CMA's latest CSI under one literal-seeded anchor — one cached WDS call, ~40 transient rows."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the identity the national views join and name on."
+    csi:
+      type: number
+      description: "Crime Severity Index, latest year (Canada 2006 = 100)."
+    year: "The reference year, YYYY-01-01."
+
+- name: CaCmaCsiThen
+  description: "One CMA's 2018 Crime Severity Index from the same national fetch — the baseline for change. Reached via LISTS_CSI_THEN from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_CSI_THEN
+      keyField: set
+      recordKeyField: key
+      producer: nationalCsiThen
+      maxAnchors: 1
+      description: "Every CMA's 2018 CSI in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — join on it against CaCmaCsiNow."
+    csi:
+      type: number
+      description: "Crime Severity Index, 2018."
+    year: "The reference year."

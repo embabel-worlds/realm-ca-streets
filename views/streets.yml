@@ -437,6 +437,80 @@
            round(10.0 * impliedValueNow / income) / 10.0 AS impliedYearsOfIncomeNow
     ORDER BY newHomePriceMovePct DESC LIMIT $limit
 
+- name: CanadaCrimeOutliers
+  description: EVERY Canadian census metropolitan area's Crime Severity Index — latest year beside 2018, percent change, and each CMA's distance from the national mean in standard deviations (computed in-view over all ~40 CMAs) — flagged OUTLIER beyond 1.5 sigma on level or on change. Needs NO watched places; the whole country hangs off a literal-seeded anchor and two cached one-call fetches. Police-REPORTED severity — reporting and enforcement move it as well as crime.
+  params:
+    limit:
+      type: int
+      default: 45
+      description: "Maximum CMAs."
+  cypher: |
+    MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_NOW]->(n:CaCmaCsiNow)
+    MATCH (u)-[:LISTS_CSI_THEN]->(o:CaCmaCsiThen)
+    WHERE o.vector = n.vector
+    WITH n.vector AS vector, toFloat(n.csi) AS csiNow, toFloat(o.csi) AS csiThen, n.year AS year
+    WHERE csiNow IS NOT NULL AND csiThen > 0
+    WITH collect({vector: vector, csiNow: csiNow, csiThen: csiThen, year: year}) AS rows,
+         avg(csiNow) AS meanNow, sqrt(avg(csiNow * csiNow) - avg(csiNow) * avg(csiNow)) AS sdNow
+    UNWIND rows AS r
+    WITH r, meanNow, sdNow, (r.csiNow / r.csiThen - 1) * 100 AS changePct
+    WITH collect({r: r, changePct: changePct}) AS rows2, meanNow, sdNow,
+         avg(changePct) AS meanChange, sqrt(avg(changePct * changePct) - avg(changePct) * avg(changePct)) AS sdChange
+    UNWIND rows2 AS x
+    WITH x.r AS r, x.changePct AS changePct, meanNow, sdNow, meanChange, sdChange,
+         (x.r.csiNow - meanNow) / sdNow AS zNow, (x.changePct - meanChange) / sdChange AS zChange
+    RETURN CASE r.vector
+             WHEN '44312689' THEN 'Abbotsford-Mission, British Columbia'
+             WHEN '52117770' THEN 'Barrie, Ontario'
+             WHEN '1064948737' THEN 'Belleville-Quinte West, Ontario'
+             WHEN '52117758' THEN 'Brantford, Ontario'
+             WHEN '44312659' THEN 'Calgary, Alberta'
+             WHEN '1593151928' THEN 'Chilliwack, British Columbia'
+             WHEN '1593151874' THEN 'Drummondville, Quebec'
+             WHEN '44312665' THEN 'Edmonton, Alberta'
+             WHEN '1593151856' THEN 'Fredericton, New Brunswick'
+             WHEN '44312605' THEN 'Greater Sudbury, Ontario'
+             WHEN '52117764' THEN 'Guelph, Ontario'
+             WHEN '44312491' THEN 'Halifax, Nova Scotia'
+             WHEN '44312575' THEN 'Hamilton, Ontario'
+             WHEN '1593151910' THEN 'Kamloops, British Columbia'
+             WHEN '52117776' THEN 'Kelowna, British Columbia'
+             WHEN '44312617' THEN 'Kingston, Ontario'
+             WHEN '44312587' THEN 'Kitchener-Cambridge-Waterloo, Ontario'
+             WHEN '1064948755' THEN 'Lethbridge, Alberta'
+             WHEN '44312593' THEN 'London, Ontario'
+             WHEN '52117746' THEN 'Moncton, New Brunswick'
+             WHEN '44312539' THEN 'Montréal, Quebec'
+             WHEN '1593151946' THEN 'Nanaimo, British Columbia'
+             WHEN '44312563' THEN 'Ottawa-Gatineau, Ontario part'
+             WHEN '44312545' THEN 'Ottawa-Gatineau, Quebec part'
+             WHEN '52117752' THEN 'Peterborough, Ontario'
+             WHEN '44312521' THEN 'Québec, Quebec'
+             WHEN '1593151892' THEN 'Red Deer, Alberta'
+             WHEN '44312641' THEN 'Regina, Saskatchewan'
+             WHEN '44312515' THEN 'Saguenay, Quebec'
+             WHEN '44312503' THEN 'Saint John, New Brunswick'
+             WHEN '44312647' THEN 'Saskatoon, Saskatchewan'
+             WHEN '44312527' THEN 'Sherbrooke, Quebec'
+             WHEN '44312473' THEN 'St. John\'s, Newfoundland and Labrador'
+             WHEN '44312581' THEN 'St.Catharines-Niagara, Ontario'
+             WHEN '44312611' THEN 'Thunder Bay, Ontario'
+             WHEN '44312569' THEN 'Toronto, Ontario'
+             WHEN '44312533' THEN 'Trois-Rivières, Quebec'
+             WHEN '44312677' THEN 'Vancouver, British Columbia'
+             WHEN '44312683' THEN 'Victoria, British Columbia'
+             WHEN '44312599' THEN 'Windsor, Ontario'
+             WHEN '44312629' THEN 'Winnipeg, Manitoba'
+             ELSE r.vector END AS cma,
+           round(r.csiNow * 10) / 10.0 AS csiNow, round(r.csiThen * 10) / 10.0 AS csi2018,
+           round(changePct * 10) / 10.0 AS changePct,
+           round(zNow * 100) / 100.0 AS sigmasFromMeanNow,
+           round(zChange * 100) / 100.0 AS sigmasFromMeanChange,
+           CASE WHEN zNow > 1.5 OR zNow < -1.5 OR zChange > 1.5 OR zChange < -1.5 THEN 'OUTLIER' ELSE '' END AS flag,
+           round(meanNow * 10) / 10.0 AS nationalMeanNow
+    ORDER BY (CASE WHEN zNow < 0 THEN -zNow ELSE zNow END) + (CASE WHEN zChange < 0 THEN -zChange ELSE zChange END) DESC
+    LIMIT $limit
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada
