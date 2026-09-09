@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">
+  <rect width="120" height="60" rx="10" fill="#13131a"/>
+  <text x="96" y="24" font-size="20" text-anchor="middle">🍁</text>
+  <path fill="#101014" stroke="#3a3a4e" stroke-width="1" d="M6 26 C14 22 18 15 24 13 C30 12 33 19 34 26 C35 34 41 40 53 42 C69 40 85 38 96 41 L103 39 L98 46 C70 50 44 50 30 47 C24 44 22 36 22 30 C20 27 12 27 6 26 Z"/>
+  <circle cx="27" cy="17.5" r="1.4" fill="#b3282d"/>
+  <path stroke="#e8e8ee" stroke-width="1.1" fill="none" d="M23.5 28 C26 29.5 30 29.5 33 28 M23.5 31 C26 32.5 30 32.5 33 31"/>
+  <g fill="#e8e8ee"><circle cx="56" cy="43" r=".9"/><circle cx="61" cy="42" r=".9"/><circle cx="66" cy="41.5" r=".9"/><circle cx="71" cy="41" r=".9"/><circle cx="76" cy="40.7" r=".9"/><circle cx="81" cy="40.5" r=".9"/><circle cx="86" cy="40.8" r=".9"/></g>
+  <path stroke="#3d5164" stroke-width="1.2" fill="none" opacity=".85" d="M2 49 C10 47.5 18 50.5 28 49 M34 50 C48 48.5 66 51 84 49 C94 48 102 50 112 48.8"/>
+</svg>

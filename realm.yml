@@ -1,0 +1,43 @@
+name: ca-streets
+description: |
+  Street-level Canada, joined at a place: the sitting MP for the riding (and the
+  MPP, mayor and councillor for the same postal code), Census 2021 population,
+  median age, household income, dwelling values and unemployment for the
+  municipality, live Air Quality Health Index, real-time river gauges, active
+  Environment Canada weather alerts and current conditions — keyless official
+  and open sources queryable as ONE graph, anchored on `CaPlace`s you watch by
+  postal code or place name, bilingual (EN/FR) wherever the source is.
+  Cross-source views answer what no single register can: CaPlaceDossier,
+  CaIncomeByParty, PartyLedger, SeatsAndFortunes, AffordabilityGap,
+  SplitRepresentation, AlertsAtMyMPs, AirVsIncome. The Maple Lens app
+  (`apps/maple-lens.html`) puts it all on a map of Canada — a dossier per dot,
+  under the leaf, with a loon on the water.
+
+  No API keys and no accounts — the realm works the moment it is installed.
+version: 0.1.1
+author: rod
+tags:
+  - canada
+  - open-data
+  - census
+  - parliament
+  - weather
+  - maps
+  - apps
+exports:
+  - represent
+  - nrcan_geolocator
+  - geomet
+  - census_profile
+  - CaPlace
+  - CaSeat
+  - ElectedRep
+  - AirQualityObs
+  - RiverReading
+  - CaWeatherAlert
+  - LocalWeather
+  - CaPopulation
+  - CaMedianAge
+  - CaHouseholdIncome
+  - CaDwellingValue
+  - CaUnemployment

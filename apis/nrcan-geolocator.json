@@ -1,0 +1,35 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NRCan Geolocation (geolocator.api.geo.ca)",
+    "version": "1.0.0",
+    "description": "Natural Resources Canada's keyless geolocation service — free-text Canadian place-name search returning ranked matches with coordinates. The old geogratis.gc.ca path 302s here; this host answers directly."
+  },
+  "servers": [
+    { "url": "https://www.geolocator.api.geo.ca" }
+  ],
+  "paths": {
+    "/geolocation/en/locate": {
+      "get": {
+        "operationId": "nrcanGeolocate",
+        "summary": "Canadian place-name search",
+        "description": "Returns a JSON ARRAY of matches, best first. Each match carries `title` ('Brantford, Brant, Ontario (City)'), `qualifier` ('LOCATION' for a real named place, 'INTERPOLATED_CENTROID' for road guesses), `type` (Geoname entries are settlements), `bbox`, and `geometry.coordinates` as [lon, lat]. Empty array = no such Canadian place.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Free text, e.g. `Brantford` or `Brantford, ON`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of matches, best first.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    }
+  }
+}

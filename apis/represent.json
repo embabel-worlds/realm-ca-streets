@@ -1,0 +1,79 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Represent (Open North)",
+    "version": "1.0.0",
+    "description": "Free, keyless Canadian civic geography — postal code to coordinates, city, province, census subdivision, federal riding, and the elected representatives at every level of government. Data republished from official sources (Elections Canada, House of Commons, provincial and municipal registers). Please stay under 60 requests/minute."
+  },
+  "servers": [
+    { "url": "https://represent.opennorth.ca" }
+  ],
+  "paths": {
+    "/postcodes/{code}/": {
+      "get": {
+        "operationId": "representPostcode",
+        "summary": "Everything a postal code is inside",
+        "description": "Returns `centroid` (GeoJSON Point, [lon, lat]), `city`, `province`, `boundaries_centroid` (each with `boundary_set_name` such as 'Federal electoral district' or 'Census subdivision', `name` and `external_id`), and `representatives_centroid` — the MP, MPP/MLA, mayor and councillors for the point, each with `elected_office`, `name`, `party_name`, `district_name`, `email` and `photo_url`. 404 for a postal code that does not exist. The operation id is deliberately NOT 'lookupPostcode' — producers resolve operation ids globally and realm-uk-streets already owns that name on postcodes.io.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The postal code, UPPERCASE with no space, e.g. `K1A0A9`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The postal code record.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/representatives/house-of-commons/": {
+      "get": {
+        "operationId": "mpForPoint",
+        "summary": "The sitting MP for a coordinate pair",
+        "description": "`objects` is an array (normally one entry) with `name`, `party_name`, `district_name` (the riding), `email`, `url` (the member's ourcommons.ca page), `photo_url` and `gender`. Empty for a point outside Canada.",
+        "parameters": [
+          {
+            "name": "point",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The point as `lat,lon`, e.g. `45.424,-75.696`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching representatives under `objects`.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/boundaries/census-subdivisions/": {
+      "get": {
+        "operationId": "csdForPoint",
+        "summary": "The census subdivision (municipality) containing a coordinate pair",
+        "description": "`objects` is an array (normally one entry) with `name` and `external_id` — the CSD code that keys every census join (`dguid` = '2021A0005' + external_id). Empty for a point outside any census subdivision. Used when a place is added by NAME rather than postal code.",
+        "parameters": [
+          {
+            "name": "contains",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The point as `lat,lon`, e.g. `43.146,-80.273`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching boundaries under `objects`.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    }
+  }
+}

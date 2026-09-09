@@ -1,0 +1,223 @@
+# ── The riding axis ──────────────────────────────────────────────────────────
+# The sitting MP for the place's coordinates. Represent asks for <= 60
+# requests/minute; one call a second keeps a whole watchlist polite.
+- name: mpForPoint
+  kind: remote
+  operation: mpForPoint
+  cost: { rate: "1/second" }
+  records: "$.objects[*]"
+  keyArg: point
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  project:
+    url: url
+    mp: name
+    party: party_name
+    riding: district_name
+    email: email
+    photo: photo_url
+    gender: gender
+  cache: { kind: ttl, seconds: 604800 }
+
+# EVERY level of government at the postal code, one call: MP, MPP/MLA, mayor,
+# councillors. Keyed on the postal code (uppercase, no space) — a place added
+# by NAME has no postal code and this join stays empty for it, which the app
+# says honestly. The operation is representPostcode, NOT lookupPostcode — that
+# id belongs to realm-uk-streets' postcodes.io and producers resolve operation
+# ids globally.
+- name: repsForPostcode
+  kind: remote
+  operation: representPostcode
+  cost: { rate: "1/second" }
+  records: "$.representatives_centroid[*]"
+  # keyArgs (path-param mode): keyArg list mode would wrap the code in a JSON
+  # list inside the path.
+  keyArgs: [code]
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  project:
+    office: elected_office
+    name: name
+    party: party_name
+    district: district_name
+    body: representative_set_name
+    email: email
+    photo: photo_url
+  cache: { kind: ttl, seconds: 604800 }
+
+# ── The coordinate axis (GeoMet) ─────────────────────────────────────────────
+# GeoMet is bilingual at the source — every producer below projects the French
+# fields beside the English ones so downstream surfaces (Maple Lens runs in
+# both official languages) never re-translate official wording.
+#
+# Latest AQHI per station in the WIDE box — stations exist near cities only,
+# so this join casts ~±0.7°. latest=true keeps it to one row per station.
+# COVERAGE: the federal AQHI network does not include Québec, which runs its
+# own IQA network — a Québec place with no rows is coverage, not clean air.
+- name: aqhiNear
+  kind: remote
+  operation: aqhiObservations
+  records: "$.features[*]"
+  keyArg: bbox
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    latest: "true"
+    limit: "12"
+    f: json
+  project:
+    id: properties.id
+    station: properties.location_name_en
+    stationFr: properties.location_name_fr
+    aqhi: properties.aqhi
+    observedAt: properties.observation_datetime
+  cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
+
+# Recent river-gauge readings in the ~20 km box, newest first. Stations report
+# every 5 minutes, so 30 rows usually cover the last half hour across several
+# stations — views de-duplicate by stationNumber. (Station names are recorded
+# in one language by the Water Survey; there is no _fr field to project.)
+- name: riverReadings
+  kind: remote
+  operation: hydrometricRealtime
+  records: "$.features[*]"
+  keyArg: bbox
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    sortby: "-DATETIME"
+    limit: "30"
+    f: json
+  project:
+    id: properties.IDENTIFIER
+    station: properties.STATION_NAME
+    stationNumber: properties.STATION_NUMBER
+    level: properties.LEVEL
+    discharge: properties.DISCHARGE
+    at: properties.DATETIME
+    province: properties.PROV_TERR_STATE_LOC
+  cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
+
+# ACTIVE weather alerts touching the place's box. 30 minutes, not 10: the
+# engine runs the per-place fan-out serially and no host schedule fires to
+# re-warm it (embabel/me#1152), so a shorter TTL just hands users a cold
+# multi-second read every 10 minutes. Half an hour is still honest for a
+# live panel, and the AlertsAtMyMPs view owns the whole cost. Empty is the
+# normal, good answer.
+- name: alertsNear
+  kind: remote
+  operation: weatherAlerts
+  records: "$.features[*]"
+  keyArg: bbox
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    limit: "20"
+    f: json
+  project:
+    alertType: properties.alert_type
+    alertName: properties.alert_name_en
+    alertNameFr: properties.alert_name_fr
+    text: properties.alert_text_en
+    textFr: properties.alert_text_fr
+    published: properties.publication_datetime
+    expires: properties.expiration_datetime
+  cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
+
+# Current conditions at the nearest city page(s).
+- name: cityWeatherNear
+  kind: remote
+  operation: cityWeather
+  records: "$.features[*]"
+  keyArg: bbox
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    limit: "3"
+    f: json
+  project:
+    id: properties.identifier
+    site: properties.name.en
+    siteFr: properties.name.fr
+    temperature: properties.currentConditions.temperature.value.en
+    condition: properties.currentConditions.condition.en
+    conditionFr: properties.currentConditions.condition.fr
+    humidity: properties.currentConditions.relativeHumidity.value.en
+    updated: properties.lastUpdated
+  cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
+
+# ── The census (municipality) axis ───────────────────────────────────────────
+# Five one-figure producers, all keyed on the place's DGUID, all the same
+# shape: the SDMX response is one record ($.data), the single observation
+# sits at a fixed path (fully pinned key = series '0:0:0:0:0'), and the
+# area's official name rides beside it from the structure block. A census
+# moves once every five years; the week-long cache is politeness.
+- name: censusPopulation
+  kind: remote
+  operation: profilePopulation
+  records: "$.data"
+  keyArgs: [dguid]
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    format: jsondata
+  project:
+    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    area: structures.0.dimensions.series.1.values.0.name
+  cache: { kind: ttl, seconds: 604800 }
+
+- name: censusMedianAge
+  kind: remote
+  operation: profileMedianAge
+  records: "$.data"
+  keyArgs: [dguid]
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    format: jsondata
+  project:
+    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    area: structures.0.dimensions.series.1.values.0.name
+  cache: { kind: ttl, seconds: 604800 }
+
+- name: censusHouseholdIncome
+  kind: remote
+  operation: profileHouseholdIncome
+  records: "$.data"
+  keyArgs: [dguid]
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    format: jsondata
+  project:
+    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    area: structures.0.dimensions.series.1.values.0.name
+  cache: { kind: ttl, seconds: 604800 }
+
+- name: censusDwellingValue
+  kind: remote
+  operation: profileDwellingValue
+  records: "$.data"
+  keyArgs: [dguid]
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    format: jsondata
+  project:
+    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    area: structures.0.dimensions.series.1.values.0.name
+  cache: { kind: ttl, seconds: 604800 }
+
+- name: censusUnemployment
+  kind: remote
+  operation: profileUnemployment
+  records: "$.data"
+  keyArgs: [dguid]
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    format: jsondata
+  project:
+    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    area: structures.0.dimensions.series.1.values.0.name
+  cache: { kind: ttl, seconds: 604800 }

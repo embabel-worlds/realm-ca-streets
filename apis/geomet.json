@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "MSC GeoMet (Environment and Climate Change Canada)",
+    "version": "1.0.0",
+    "description": "Official, keyless OGC API — live Air Quality Health Index observations, real-time hydrometric river gauges, active weather alerts and current city conditions, all as GeoJSON FeatureCollections filtered by bbox."
+  },
+  "servers": [
+    { "url": "https://api.weather.gc.ca" }
+  ],
+  "paths": {
+    "/collections/aqhi-observations-realtime/items": {
+      "get": {
+        "operationId": "aqhiObservations",
+        "summary": "Air Quality Health Index observations inside a bbox",
+        "description": "`features[].properties` carries `location_name_en`, `location_name_fr`, `aqhi` (1 low risk … 10+ very high risk), `observation_datetime` and `latest`. Pass `latest=true` for only the newest observation per station. Stations exist near cities and larger towns only, and the federal network does not include Québec — an empty result is a COVERAGE fact, not clean air.",
+        "parameters": [
+          { "name": "bbox", "in": "query", "required": true, "schema": { "type": "string" }, "description": "lonMin,latMin,lonMax,latMax" },
+          { "name": "latest", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "f", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Set to `json`." }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection.", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/collections/hydrometric-realtime/items": {
+      "get": {
+        "operationId": "hydrometricRealtime",
+        "summary": "Real-time river gauge readings inside a bbox",
+        "description": "`features[].properties` carries `STATION_NAME`, `STATION_NUMBER`, `LEVEL` (metres), `DISCHARGE` (m³/s, often null), `DATETIME` and `PROV_TERR_STATE_LOC`. Multiple 5-minute readings per station — sort `-DATETIME` and de-duplicate by station for the latest.",
+        "parameters": [
+          { "name": "bbox", "in": "query", "required": true, "schema": { "type": "string" }, "description": "lonMin,latMin,lonMax,latMax" },
+          { "name": "sortby", "in": "query", "required": false, "schema": { "type": "string" }, "description": "`-DATETIME` for newest first." },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "f", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection.", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/collections/weather-alerts/items": {
+      "get": {
+        "operationId": "weatherAlerts",
+        "summary": "ACTIVE Environment Canada weather alerts intersecting a bbox",
+        "description": "`features[].properties` carries `alert_type` (warning/watch/statement/advisory), `alert_name_en`, `alert_name_fr`, `alert_text_en`, `alert_text_fr`, `publication_datetime` and `expiration_datetime`. Empty is the normal, good answer.",
+        "parameters": [
+          { "name": "bbox", "in": "query", "required": true, "schema": { "type": "string" }, "description": "lonMin,latMin,lonMax,latMax" },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "f", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection.", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/collections/citypageweather-realtime/items": {
+      "get": {
+        "operationId": "cityWeather",
+        "summary": "Current conditions at weather.gc.ca city pages inside a bbox",
+        "description": "`features[].properties` carries `name.en`, `name.fr`, `currentConditions.temperature.value.en` (°C), `currentConditions.condition.en`, `currentConditions.condition.fr`, `currentConditions.relativeHumidity.value.en` and `lastUpdated`. Some sites report no current conditions overnight — nulls are normal.",
+        "parameters": [
+          { "name": "bbox", "in": "query", "required": true, "schema": { "type": "string" }, "description": "lonMin,latMin,lonMax,latMax" },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "f", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "GeoJSON FeatureCollection.", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    }
+  }
+}

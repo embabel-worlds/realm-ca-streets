@@ -1,0 +1,317 @@
+# Saved views over the CaPlace joins. The headline views each join two or more
+# national datasets that never meet anywhere else — the House of Commons does
+# not publish census income, Statistics Canada does not publish who your MP is,
+# and Environment Canada knows neither. The join at YOUR places is the product.
+# Where the source is bilingual (Environment Canada), views return BOTH official
+# wordings — columns suffixed Fr — so a French surface never re-translates.
+#
+# View names are GLOBALLY resolved across installed realms — `IncomeByParty`
+# already belongs to realm-uk-streets, which is why the party view here is
+# CaIncomeByParty (a collision this realm hit and fixed).
+#
+# CaPlaceDossier deliberately does NOT traverse HAS_ALERT: alerts have the
+# shortest cache and their cold fan-out would put seconds on the app's first
+# paint. Alert counts come from AlertsAtMyMPs, which owns that cost.
+
+- name: CaPlaceDossier
+  description: The whole picture per watched Canadian place, one row each — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value and unemployment for the municipality, worst current AQHI nearby, and current temperature and conditions (English and French). Active alerts are NOT in this row — run AlertsAtMyMPs for those; keeping the short-TTL alert join out keeps this view fast.
+  params:
+    limit:
+      type: int
+      default: 15
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_SEAT]->(s0:CaSeat)
+    WITH p, collect(s0)[0] AS s
+    OPTIONAL MATCH (p)-[:HAS_POPULATION]->(pop:CaPopulation)
+    WITH p, s, max(toFloat(pop.value)) AS population
+    OPTIONAL MATCH (p)-[:HAS_MEDIAN_AGE]->(ma:CaMedianAge)
+    WITH p, s, population, max(toFloat(ma.value)) AS medianAge
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(inc:CaHouseholdIncome)
+    WITH p, s, population, medianAge, max(toFloat(inc.value)) AS medianHouseholdIncome
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(dv:CaDwellingValue)
+    WITH p, s, population, medianAge, medianHouseholdIncome, max(toFloat(dv.value)) AS medianDwellingValue
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(un:CaUnemployment)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, max(toFloat(un.value)) AS unemploymentRate
+    OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, max(toFloat(a.aqhi)) AS worstAqhi
+    OPTIONAL MATCH (p)-[:HAS_WEATHER]->(w0:LocalWeather)
+    WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, worstAqhi, collect(w0)[0] AS w
+    RETURN p.name AS place, p.city AS city, p.province AS province,
+           p.postalCode AS postalCode,
+           toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
+           s.riding AS riding, s.mp AS mp, s.party AS party,
+           s.photo AS photo, s.email AS email, s.gender AS gender,
+           population, medianAge, medianHouseholdIncome, medianDwellingValue,
+           unemploymentRate, worstAqhi,
+           toFloat(w.temperature) AS temperatureC, w.condition AS condition,
+           w.conditionFr AS conditionFr
+    ORDER BY place LIMIT $limit
+
+- name: WhoRepresentsMe
+  description: EVERY elected representative at each watched place's postal code — MP, MPP/MLA/MNA, mayor and councillors, one row each, federal first. The combined 'who represents this address' record no single level of government publishes. Party is often empty at municipal level (non-partisan councils), and a missing councillor is Represent coverage, not a vacancy. A place added by NAME has no postal code and no rows here.
+  params:
+    limit:
+      type: int
+      default: 60
+      description: "Maximum rows."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_REP]->(r:ElectedRep)
+    RETURN p.name AS place, r.office AS office, r.name AS name,
+           r.party AS party, r.district AS district, r.body AS body, r.email AS email
+    ORDER BY place,
+      CASE r.office WHEN 'MP' THEN 0 WHEN 'MPP' THEN 1 WHEN 'MLA' THEN 1
+                    WHEN 'MNA' THEN 1 WHEN 'MHA' THEN 1 WHEN 'Mayor' THEN 2
+                    ELSE 3 END
+    LIMIT $limit
+
+- name: SeatsAtMyPlaces
+  description: The federal riding and sitting MP for each watched place — name, party, email and official photo URL, straight from the House of Commons record via Represent.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+    RETURN p.name AS place, s.riding AS riding, s.mp AS mp, s.party AS party,
+           s.email AS email, s.photo AS photo
+    ORDER BY place LIMIT $limit
+
+# ── The cross-source views — questions no single register answers ────────────
+
+- name: CaIncomeByParty
+  description: Census 2021 median household income of watched municipalities, grouped by the party of each place's sitting MP — 'what does a Liberal place earn vs a Conservative one', from Statistics Canada and the House of Commons, joined at your places. Averages of MUNICIPAL medians over the watchlist, not a national estimate — the description says whose places these are. (Named CaIncomeByParty because realm-uk-streets already owns IncomeByParty.)
+  params:
+    limit:
+      type: int
+      default: 10
+      description: "Maximum parties."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH p, s, max(toFloat(i.value)) AS income
+    WHERE income IS NOT NULL
+    RETURN s.party AS party, count(*) AS places,
+           round(avg(income)) AS avgMedianHouseholdIncome,
+           round(min(income)) AS lowest, round(max(income)) AS highest
+    ORDER BY avgMedianHouseholdIncome DESC LIMIT $limit
+
+- name: PartyLedger
+  description: The full census ledger by MP party across watched places — average median household income, average median dwelling value, average unemployment rate and average median age per party. StatCan's numbers under Parliament's colours; averages of municipal medians over YOUR watchlist.
+  params:
+    limit:
+      type: int
+      default: 10
+      description: "Maximum parties."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH p, s, max(toFloat(i.value)) AS income
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    WITH p, s, income, max(toFloat(d.value)) AS dwelling
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(u:CaUnemployment)
+    WITH p, s, income, dwelling, max(toFloat(u.value)) AS unemployment
+    OPTIONAL MATCH (p)-[:HAS_MEDIAN_AGE]->(ag:CaMedianAge)
+    WITH s.party AS party, income, dwelling, unemployment, max(toFloat(ag.value)) AS medianAge
+    RETURN party, count(*) AS places,
+           round(avg(income)) AS avgMedianHouseholdIncome,
+           round(avg(dwelling)) AS avgMedianDwellingValue,
+           round(avg(unemployment) * 10) / 10.0 AS avgUnemploymentRate,
+           round(avg(medianAge) * 10) / 10.0 AS avgMedianAge
+    ORDER BY avgMedianHouseholdIncome DESC LIMIT $limit
+
+- name: SeatsAndFortunes
+  description: Each watched place's riding and sitting MP beside the municipality's census fortunes — household income, dwelling value and the affordability ratio — ranked by income. One row per place; the riding-to-census join neither Parliament nor StatCan publishes.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH p, s, max(toFloat(i.value)) AS income
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    WITH p, s, income, max(toFloat(d.value)) AS dwelling
+    RETURN p.name AS place, s.riding AS riding, s.mp AS mp, s.party AS party,
+           income AS medianHouseholdIncome, dwelling AS medianDwellingValue,
+           CASE WHEN income IS NULL OR income = 0 OR dwelling IS NULL THEN null
+                ELSE round(10.0 * dwelling / income) / 10.0 END AS yearsOfIncomePerHome
+    ORDER BY income IS NULL, income DESC LIMIT $limit
+
+- name: SplitRepresentation
+  description: Watched places whose FEDERAL and PROVINCIAL representatives come from different political families — MP party beside MPP/MLA/MNA/MHA party, with `aligned` computed on shared party stems (Liberal, Conservative, New Democratic, Green). Provincial parties are distinct organisations from their federal namesakes — alignment here means the NAME family matches, nothing more; Québec's CAQ/PQ never 'align' by this rule and that is honest.
+  params:
+    limit:
+      type: int
+      default: 30
+      description: "Maximum rows."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_REP]->(f:ElectedRep {office:'MP'})
+    MATCH (p)-[:HAS_REP]->(pr:ElectedRep)
+    WHERE pr.office IN ['MPP','MLA','MNA','MHA']
+    RETURN p.name AS place, f.name AS mp, f.party AS federalParty,
+           pr.name AS provincialRep, pr.office AS provincialOffice, pr.party AS provincialParty,
+           any(stem IN ['Liberal','Conservative','New Democratic','Green']
+               WHERE f.party CONTAINS stem AND pr.party CONTAINS stem) AS aligned
+    ORDER BY aligned, place LIMIT $limit
+
+- name: AffordabilityGap
+  description: Years of median household income needed to buy the median dwelling in each watched municipality — Census dwelling value over census household income, ranked least affordable first. Both figures are municipal medians (owner-estimated values, 2020 incomes); the RATIO is the comparable number, and no register publishes it.
+  params:
+    limit:
+      type: int
+      default: 15
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    WITH p, max(toFloat(d.value)) AS dwelling
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH p, dwelling, max(toFloat(i.value)) AS income
+    RETURN p.name AS place, p.city AS city, p.province AS province,
+           dwelling AS medianDwellingValue, income AS medianHouseholdIncome,
+           CASE WHEN income IS NULL OR income = 0 OR dwelling IS NULL THEN null
+                ELSE round(10.0 * dwelling / income) / 10.0 END AS yearsOfIncomePerHome
+    ORDER BY yearsOfIncomePerHome IS NULL, yearsOfIncomePerHome DESC
+    LIMIT $limit
+
+- name: CensusLeague
+  description: Every census measure for every watched place in one comparable table — population, median age, median household income, median dwelling value, unemployment rate and the affordability ratio, ranked by income. All figures are 2021 Census municipal values (incomes 2020; unemployment is the May-2021 reference week).
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_POPULATION]->(pop:CaPopulation)
+    WITH p, max(toFloat(pop.value)) AS population
+    OPTIONAL MATCH (p)-[:HAS_MEDIAN_AGE]->(ma:CaMedianAge)
+    WITH p, population, max(toFloat(ma.value)) AS medianAge
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    WITH p, population, medianAge, max(toFloat(i.value)) AS income
+    OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    WITH p, population, medianAge, income, max(toFloat(d.value)) AS dwelling
+    OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]->(u:CaUnemployment)
+    WITH p, population, medianAge, income, dwelling, max(toFloat(u.value)) AS unemployment
+    RETURN p.name AS place, p.city AS city, p.province AS province,
+           population, medianAge, income AS medianHouseholdIncome,
+           dwelling AS medianDwellingValue, unemployment AS unemploymentRate,
+           CASE WHEN income IS NULL OR income = 0 OR dwelling IS NULL THEN null
+                ELSE round(10.0 * dwelling / income) / 10.0 END AS yearsOfIncomePerHome
+    ORDER BY income IS NULL, income DESC LIMIT $limit
+
+- name: AirVsIncome
+  description: The worst current AQHI near each watched place beside the municipality's median household income — 'do richer places breathe easier air right now', Environment Canada joined to Statistics Canada. AQHI is a live snapshot, not an annual average; a null means no monitoring station within the wide box, a coverage fact (the federal AQHI network does not include Québec).
+  params:
+    limit:
+      type: int
+      default: 15
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
+    WITH p, max(toFloat(a.aqhi)) AS worstAqhi
+    OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+    RETURN p.name AS place, p.city AS city, worstAqhi,
+           max(toFloat(i.value)) AS medianHouseholdIncome
+    ORDER BY worstAqhi IS NULL, worstAqhi DESC LIMIT $limit
+
+- name: AlertsAtMyMPs
+  description: Active Environment Canada weather alerts at watched places, joined to the riding and sitting MP — 'which MP's constituents are under an official alert right now'. Alert names in both official languages. A live join of Environment Canada to the House of Commons that neither publishes. Every place returns at least one row (null alert = none there), so an app can derive per-place counts. This view owns the short-TTL alert fan-out — expect the occasional slower cold read.
+  params:
+    limit:
+      type: int
+      default: 30
+      description: "Maximum rows."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_ALERT]->(al:CaWeatherAlert)
+    WITH p, al
+    OPTIONAL MATCH (p)-[:HAS_SEAT]->(s:CaSeat)
+    WITH p, al, collect(s)[0] AS s
+    RETURN p.name AS place, al.alertName AS alert, al.alertNameFr AS alertFr,
+           al.alertType AS type, s.riding AS riding, s.mp AS mp, s.party AS party,
+           al.expires AS expires
+    ORDER BY CASE al.alertType WHEN 'warning' THEN 0 WHEN 'watch' THEN 1
+                               WHEN 'advisory' THEN 2 ELSE 3 END, place
+    LIMIT $limit
+
+# ── Single-source live views ─────────────────────────────────────────────────
+
+- name: MorningCanada
+  description: The live face of every watched place at the same instant, coast to coast — current temperature and conditions (both official languages), worst AQHI with its risk band, and the count of active alerts. The one-view morning briefing; run it and read down.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_WEATHER]->(w0:LocalWeather)
+    WITH p, collect(w0)[0] AS w
+    OPTIONAL MATCH (p)-[:HAS_AIR]->(a:AirQualityObs)
+    WITH p, w, max(toFloat(a.aqhi)) AS worstAqhi
+    OPTIONAL MATCH (p)-[:HAS_ALERT]->(al:CaWeatherAlert)
+    RETURN p.name AS place, p.province AS province,
+           toFloat(w.temperature) AS temperatureC,
+           w.condition AS condition, w.conditionFr AS conditionFr,
+           worstAqhi,
+           CASE WHEN worstAqhi IS NULL THEN null
+                WHEN worstAqhi <= 3 THEN 'Low risk' WHEN worstAqhi <= 6 THEN 'Moderate risk'
+                WHEN worstAqhi <= 10 THEN 'High risk' ELSE 'Very high risk' END AS airRisk,
+           count(al) AS activeAlerts
+    ORDER BY temperatureC IS NULL, temperatureC DESC LIMIT $limit
+
+- name: AirQualityNow
+  description: The latest Air Quality Health Index at every monitoring station near watched places, worst first, with the official risk band and the station's name in both official languages. 1-3 low, 4-6 moderate, 7-10 high, 10+ very high. No station within the wide box means no row — coverage, not clean air (the federal AQHI network does not include Québec).
+  params:
+    limit:
+      type: int
+      default: 30
+      description: "Maximum station rows."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_AIR]->(a:AirQualityObs)
+    WITH p, a, toFloat(a.aqhi) AS aqhi
+    RETURN p.name AS place, a.station AS station, a.stationFr AS stationFr, aqhi,
+           CASE WHEN aqhi <= 3 THEN 'Low risk' WHEN aqhi <= 6 THEN 'Moderate risk'
+                WHEN aqhi <= 10 THEN 'High risk' ELSE 'Very high risk' END AS risk,
+           a.observedAt AS observedAt
+    ORDER BY aqhi DESC LIMIT $limit
+
+- name: RiversNearMe
+  description: The LATEST reading from each river gauge near watched places — level in metres on the station's own datum, discharge where measured. Compare a station against itself over time, never one river's level against another's.
+  params:
+    limit:
+      type: int
+      default: 30
+      description: "Maximum station rows."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_RIVER]->(r:RiverReading)
+    WITH p, r ORDER BY r.at DESC
+    WITH p, r.stationNumber AS stationNumber, collect(r)[0] AS latest
+    RETURN p.name AS place, latest.station AS station,
+           toFloat(latest.level) AS levelMetres,
+           toFloat(latest.discharge) AS dischargeM3s, latest.at AS readAt
+    ORDER BY place, station LIMIT $limit
+
+- name: WeatherAcrossMyPlaces
+  description: Current temperature, conditions (both official languages) and humidity at the weather.gc.ca city page nearest each watched place, with any active alert count — the same instant across the whole watchlist, coast to coast.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum places."
+  cypher: |
+    MATCH (p:CaPlace)
+    OPTIONAL MATCH (p)-[:HAS_WEATHER]->(w0:LocalWeather)
+    WITH p, collect(w0)[0] AS w
+    OPTIONAL MATCH (p)-[:HAS_ALERT]->(al:CaWeatherAlert)
+    RETURN p.name AS place, p.province AS province, w.site AS site,
+           toFloat(w.temperature) AS temperatureC, w.condition AS condition,
+           w.conditionFr AS conditionFr,
+           toFloat(w.humidity) AS humidityPct, count(al) AS activeAlerts
+    ORDER BY temperatureC DESC LIMIT $limit

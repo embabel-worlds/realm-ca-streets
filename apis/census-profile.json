@@ -1,0 +1,68 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Statistics Canada Census Profile 2021 (SDMX)",
+    "version": "1.0.0",
+    "description": "Official, keyless SDMX REST access to the 2021 Census Profile for a census subdivision (municipality), addressed by DGUID ('2021A0005' + CSD code). One characteristic per operation — the characteristic id is pinned in the path. The single value lands at data.dataSets[0].series['0:0:0:0:0'].observations['0'][0]; the area's official name at data.structures[0].dimensions.series[1].values[0].name."
+  },
+  "servers": [
+    { "url": "https://api.statcan.gc.ca" }
+  ],
+  "paths": {
+    "/census-recensement/profile/sdmx/rest/data/STC_CP,DF_CSD/A5.{dguid}.1.1.1": {
+      "get": {
+        "operationId": "profilePopulation",
+        "summary": "Population, 2021 — census subdivision",
+        "parameters": [
+          { "name": "dguid", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The census subdivision DGUID, e.g. `2021A00053520005` (Toronto)." },
+          { "name": "format", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Set to `jsondata`." }
+        ],
+        "responses": { "200": { "description": "SDMX-JSON data message.", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/census-recensement/profile/sdmx/rest/data/STC_CP,DF_CSD/A5.{dguid}.1.40.1": {
+      "get": {
+        "operationId": "profileMedianAge",
+        "summary": "Median age of the population — census subdivision",
+        "parameters": [
+          { "name": "dguid", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "format", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "SDMX-JSON data message.", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/census-recensement/profile/sdmx/rest/data/STC_CP,DF_CSD/A5.{dguid}.1.229.1": {
+      "get": {
+        "operationId": "profileHouseholdIncome",
+        "summary": "Median total income of household in 2020 ($) — census subdivision",
+        "parameters": [
+          { "name": "dguid", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "format", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "SDMX-JSON data message.", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/census-recensement/profile/sdmx/rest/data/STC_CP,DF_CSD/A5.{dguid}.1.1474.1": {
+      "get": {
+        "operationId": "profileDwellingValue",
+        "summary": "Median value of dwellings ($) — census subdivision",
+        "parameters": [
+          { "name": "dguid", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "format", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "SDMX-JSON data message.", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/census-recensement/profile/sdmx/rest/data/STC_CP,DF_CSD/A5.{dguid}.1.2230.1": {
+      "get": {
+        "operationId": "profileUnemployment",
+        "summary": "Unemployment rate (%), census week 2021 — census subdivision",
+        "parameters": [
+          { "name": "dguid", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "format", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "SDMX-JSON data message.", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    }
+  }
+}

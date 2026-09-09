@@ -1,0 +1,65 @@
+# Four keyless, unauthenticated sources, specs VENDORED next to this file (the
+# realm-uk-streets choice): none of the four publishes an OpenAPI document that
+# can be used directly, so a hand-curated pin is the only stable contract.
+# Each spec is deliberately NARROW — only the operations the producers, the
+# skill and the Maple Lens app actually call.
+#
+# NO `auth:` and NO `token-env:` anywhere: all four are open.
+#
+# Operation ids are chosen to be GLOBALLY unique — producers resolve them by
+# bare id across every installed realm, and `lookupPostcode` already belongs to
+# realm-uk-streets' postcodes.io (a collision this realm hit and fixed).
+
+# Represent (Open North) — the bridge between a postal code (or a point) and
+# everything it is inside: coordinates, city, province, census subdivision,
+# federal riding, and the elected representatives at every level of
+# government. Civic-tech infrastructure used by parties and NGOs across
+# Canada; CC-licensed data from official sources. Ask for <= 60
+# requests/minute — the producers pace to 1/s.
+- url: represent.json
+  name: represent
+  type: openapi
+  auth: none
+  operation-ids:
+    - representPostcode
+    - mpForPoint
+    - csdForPoint
+
+# NRCan Geolocation — free-text Canadian place-name search ("Brantford" →
+# coordinates), so a place can be watched by NAME as well as by postal code.
+# The Maple Lens app calls this directly; no producer keys on it.
+- url: nrcan-geolocator.json
+  name: nrcan_geolocator
+  type: openapi
+  auth: none
+  operation-ids:
+    - nrcanGeolocate
+
+# MSC GeoMet (Environment and Climate Change Canada) — one OGC API host serving
+# live AQHI air quality, real-time hydrometric river gauges, active weather
+# alerts and current city conditions. Official, keyless, GeoJSON.
+- url: geomet.json
+  name: geomet
+  type: openapi
+  auth: none
+  operation-ids:
+    - aqhiObservations
+    - hydrometricRealtime
+    - weatherAlerts
+    - cityWeather
+
+# Statistics Canada Census Profile 2021 (SDMX REST) — one figure per call for a
+# census subdivision, addressed by DGUID. Official, keyless. The characteristic
+# id is pinned INSIDE each operation's path (population 1, median age 40,
+# median household income 229, median dwelling value 1474, unemployment 2230)
+# because the engine keys a producer on exactly one value — the DGUID.
+- url: census-profile.json
+  name: census_profile
+  type: openapi
+  auth: none
+  operation-ids:
+    - profilePopulation
+    - profileMedianAge
+    - profileHouseholdIncome
+    - profileDwellingValue
+    - profileUnemployment

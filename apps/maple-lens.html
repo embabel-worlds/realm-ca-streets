@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maple Lens</title>
+<meta name="description" content="Bilingual (EN/FR) street-level Canada joined at your postal codes — a map of watched places with, per place, the sitting MP and every other elected rep, Census 2021 income and affordability, live air quality, river gauges, weather alerts and conditions, plus cross-source join views like income by MP party and split federal/provincial representation.">
+<link rel="stylesheet" href="/api/v1/apps-runtime/v1/theme.css">
+<script src="/api/v1/apps-runtime/v1/embabel.js"></script>
+<script src="/api/v1/apps-runtime/gateway.js"></script>
+<script type="application/embabel-app+json">
+{"version":1,"name":"maple-lens","requires":{"lenses":[],"views":["CaPlaceDossier","WhoRepresentsMe","SplitRepresentation","AffordabilityGap","PartyLedger","AirVsIncome","AlertsAtMyMPs","AirQualityNow","RiversNearMe"],"realms":["ca-streets"],"namespaces":["represent","repository","nrcanGeolocator"]}}
+</script>
+<style>
+:root{
+  --bg:#0a0a0f; --surface:#13131a; --surface2:#181822; --border:#1e1e2e;
+  --ink:#e5e7eb; --ink2:#a7adba; --dim:#6b7280;
+  --maple:#e8354f; --maple-soft:#ef4b56; --maple-deep:#b31f36;
+  --ndp:#d06d20; --ok:#4fa544; --warn:#d9a520; --bad:#ef4b56;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+a{color:var(--maple-soft)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px 72px}
+
+header.hero{position:relative;padding:26px 0 18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.leaf-badge{width:64px;height:64px;border-radius:18px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-size:40px;background:radial-gradient(circle at 30% 25%,#2a1218,#160b10 70%);
+  border:1px solid #3a1d26;box-shadow:0 0 34px rgba(232,53,79,.35),inset 0 0 18px rgba(232,53,79,.18)}
+.hero h1{margin:0;font-size:34px;letter-spacing:-.5px;font-weight:800;
+  background:linear-gradient(100deg,#fff 15%,#ffb3bd 45%,var(--maple) 80%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .tag{margin:2px 0 0;color:var(--ink2);font-size:14px}
+.hero .tag b{color:var(--ink)}
+.flagline{height:3px;border:none;margin:0 0 22px;border-radius:2px;
+  background:linear-gradient(90deg,var(--maple) 0 25%,#fff2f3 25% 75%,var(--maple) 75% 100%);opacity:.85}
+.spacer{flex:1}
+.addbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.addbox input{background:var(--surface2);border:1px solid var(--border);color:var(--ink);
+  border-radius:10px;padding:9px 12px;font-size:14px;outline:none;width:130px}
+.addbox input:focus{border-color:var(--maple-deep)}
+.addbox input.pname{width:170px}
+button.maple{background:linear-gradient(135deg,var(--maple),var(--maple-deep));color:#fff;border:none;
+  border-radius:10px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer}
+button.maple:hover{filter:brightness(1.12)}
+button.ghost{background:transparent;border:1px solid var(--border);color:var(--ink2);
+  border-radius:10px;padding:9px 13px;font-size:14px;cursor:pointer}
+button.ghost:hover{color:var(--ink);border-color:#33334a}
+button.lang{background:var(--surface2);border:1px solid var(--maple-deep);color:#ffb3bd;
+  border-radius:10px;padding:9px 13px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.04em}
+button.lang:hover{color:#fff}
+.addmsg{font-size:13px;color:var(--dim);width:100%}
+.addmsg.err{color:var(--bad)}
+
+.grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:18px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;min-width:0}
+.card h2{margin:0 0 4px;font-size:16px;font-weight:700}
+.card h2 .lf{margin-right:6px}
+.card .sub{margin:0 0 14px;color:var(--dim);font-size:12.5px}
+
+#mapcard{position:relative;overflow:hidden}
+#mapcard .watermark{position:absolute;right:-40px;bottom:-52px;font-size:230px;opacity:.05;pointer-events:none;transform:rotate(12deg)}
+#canvas{width:100%;height:auto;display:block}
+.ring{fill:#161620;stroke:#2c2c3e;stroke-width:1;vector-effect:non-scaling-stroke}
+.dot{fill:var(--maple);stroke:#0a0a0f;stroke-width:1.4;cursor:pointer;transition:r .15s}
+.dot:hover{fill:#ff7484}
+.dot.sel{fill:#ff5c70;stroke:#ffd9de;stroke-width:2}
+.halo{fill:none;stroke:var(--maple);stroke-opacity:.5;pointer-events:none;animation:halo 2.6s ease-in-out infinite}
+@keyframes halo{0%,100%{stroke-opacity:.5}50%{stroke-opacity:.12}}
+.maplabel{fill:#c9ced8;font-size:11px;pointer-events:none;text-shadow:0 1px 3px #000}
+
+.pchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.pchip{border:1px solid var(--border);background:var(--surface2);color:var(--ink2);
+  padding:6px 12px;border-radius:999px;font-size:13px;cursor:pointer}
+.pchip.sel{border-color:var(--maple-deep);color:#fff;background:rgba(232,53,79,.14)}
+.mpcard{display:flex;gap:14px;align-items:center;background:var(--surface2);
+  border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.mpcard img,.mpcard .noimg{width:56px;height:56px;border-radius:50%;object-fit:cover;object-position:top;
+  border:2px solid var(--border);background:#22222e;flex:0 0 auto}
+.mpcard .noimg{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:var(--ink2)}
+.mpcard .who{min-width:0}
+.mpcard .who .nm{font-weight:700;font-size:15.5px}
+.mpcard .who .rd{color:var(--ink2);font-size:12.5px}
+.mpcard .who .em{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.partychip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+  padding:2px 9px;border-radius:999px;border:1px solid var(--border);color:var(--ink)}
+.partychip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:520px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.tile .v{font-size:19px;font-weight:800;letter-spacing:-.3px}
+.tile .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.tile.hot .v{color:var(--maple-soft)}
+.liverow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.pill{display:inline-flex;gap:7px;align-items:center;background:var(--surface2);border:1px solid var(--border);
+  border-radius:999px;padding:6px 13px;font-size:13px}
+.pill b{font-weight:800}
+.pill .dotc{width:9px;height:9px;border-radius:50%}
+.minihead{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px}
+.minilist{font-size:13px}
+.minilist .row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+.minilist .row:last-child{border-bottom:none}
+.minilist .l{color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minilist .r{color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.covnote{font-size:12.5px;color:var(--dim);font-style:italic}
+
+.joins{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-top:18px}
+.bar{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center;padding:6px 0;font-size:13px}
+.bar .nm{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.bar .tr{background:#101018;border-radius:5px;height:14px;position:relative;overflow:hidden}
+.bar .fl{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--maple-deep),var(--maple));
+  border-radius:0 4px 4px 0;min-width:3px}
+.bar .vv{font-weight:700;font-variant-numeric:tabular-nums}
+table.jt{width:100%;border-collapse:collapse;font-size:13px}
+table.jt th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em;text-align:left;
+  padding:4px 8px 6px;border-bottom:1px solid var(--border)}
+table.jt td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.jt tr:last-child td{border-bottom:none}
+.badge{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px}
+.badge.split{background:rgba(232,53,79,.15);color:#ff8494;border:1px solid rgba(232,53,79,.3)}
+.badge.match{background:rgba(79,165,68,.14);color:#7ec973;border:1px solid rgba(79,165,68,.3)}
+.tblwrap{overflow-x:auto}
+.ledger{display:flex;flex-direction:column;gap:12px}
+.ledgerrow{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px 14px}
+.ledgerrow .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.ledgerrow .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:12.5px}
+.ledgerrow .nums b{display:block;font-size:15px}
+.ledgerrow .nums span{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+.emptymsg{color:var(--dim);font-size:13.5px;padding:8px 0}
+.emptymsg.good{color:#7ec973}
+embabel-operation-state{display:block;margin:8px 0}
+.errbox{background:rgba(232,53,79,.08);border:1px solid rgba(232,53,79,.35);color:#ffaab4;
+  border-radius:10px;padding:10px 14px;font-size:13.5px;margin:8px 0}
+
+footer.foot{margin-top:26px;padding:14px 0 4px;color:var(--dim);font-size:12.5px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.loon{position:absolute;left:20px;bottom:12px;width:92px;height:auto;opacity:.92;
+  animation:bob 3.6s ease-in-out infinite;pointer-events:none}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+#how-it-works{display:none;margin-top:18px}
+#how-it-works:target{display:block}
+#how-it-works pre{background:#0d0d13;border:1px solid var(--border);border-radius:10px;
+  padding:12px;font-size:12px;overflow-x:auto;color:#c6cbd6}
+#how-it-works h3{margin:18px 0 6px;font-size:14.5px}
+#how-it-works table{font-size:13px;border-collapse:collapse}
+#how-it-works td,#how-it-works th{border:1px solid var(--border);padding:6px 10px;text-align:left}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="leaf-badge" aria-hidden="true">&#127809;</div>
+  <div>
+    <h1>Maple Lens</h1>
+    <p class="tag" id="tagline"></p>
+  </div>
+  <div class="spacer"></div>
+  <div class="addbox">
+    <input id="addName" class="pname" maxlength="40">
+    <input id="addCode" maxlength="40">
+    <button class="maple" id="addBtn"></button>
+    <button class="ghost" id="refreshBtn"></button>
+    <button class="lang" id="langBtn" aria-label="Switch language / Changer de langue"></button>
+    <div class="addmsg" id="addMsg"></div>
+  </div>
+</header>
+<hr class="flagline">
+
+<div id="unavailable"></div>
+<embabel-operation-state id="main-state"></embabel-operation-state>
+
+<div class="grid">
+  <div class="card" id="mapcard">
+    <span class="watermark" aria-hidden="true">&#127809;</span>
+    <svg class="loon" viewBox="0 0 120 60" role="img" aria-label="Common loon / Plongeon huard">
+      <title>Common loon / Plongeon huard</title>
+      <path fill="#101014" stroke="#3a3a4e" stroke-width="1" d="M6 26 C14 22 18 15 24 13 C30 12 33 19 34 26 C35 34 41 40 53 42 C69 40 85 38 96 41 L103 39 L98 46 C70 50 44 50 30 47 C24 44 22 36 22 30 C20 27 12 27 6 26 Z"/>
+      <circle cx="27" cy="17.5" r="1.4" fill="#b3282d"/>
+      <path stroke="#e8e8ee" stroke-width="1.1" fill="none" d="M23.5 28 C26 29.5 30 29.5 33 28 M23.5 31 C26 32.5 30 32.5 33 31"/>
+      <g fill="#e8e8ee">
+        <circle cx="56" cy="43" r=".9"/><circle cx="61" cy="42" r=".9"/><circle cx="66" cy="41.5" r=".9"/>
+        <circle cx="71" cy="41" r=".9"/><circle cx="76" cy="40.7" r=".9"/><circle cx="81" cy="40.5" r=".9"/>
+        <circle cx="86" cy="40.8" r=".9"/><circle cx="59" cy="45" r=".9"/><circle cx="64" cy="44.3" r=".9"/>
+        <circle cx="69" cy="43.7" r=".9"/><circle cx="74" cy="43.2" r=".9"/><circle cx="79" cy="42.8" r=".9"/>
+      </g>
+      <path stroke="#3d5164" stroke-width="1.2" fill="none" opacity=".85" d="M2 49 C10 47.5 18 50.5 28 49 M34 50 C48 48.5 66 51 84 49 C94 48 102 50 112 48.8"/>
+    </svg>
+    <h2><span class="lf">&#127809;</span><span id="mapTitle"></span></h2>
+    <p class="sub" id="mapSub"></p>
+    <svg id="canvas" viewBox="0 0 900 700" role="img" aria-label="Map of Canada / Carte du Canada"></svg>
+  </div>
+
+  <div class="card">
+    <h2 id="dossierTitle"></h2>
+    <p class="sub" id="dossierSub"></p>
+    <div class="pchips" id="pchips"></div>
+    <div id="dossier"></div>
+  </div>
+</div>
+
+<div class="joins" id="joins">
+  <div class="card">
+    <h2 id="affordTitle"></h2>
+    <p class="sub" id="affordSub"></p>
+    <embabel-operation-state id="st-afford"></embabel-operation-state>
+    <div id="p-afford"></div>
+  </div>
+  <div class="card">
+    <h2 id="ledgerTitle"></h2>
+    <p class="sub" id="ledgerSub"></p>
+    <embabel-operation-state id="st-ledger"></embabel-operation-state>
+    <div id="p-ledger"></div>
+  </div>
+  <div class="card">
+    <h2 id="splitTitle"></h2>
+    <p class="sub" id="splitSub"></p>
+    <embabel-operation-state id="st-split"></embabel-operation-state>
+    <div class="tblwrap" id="p-split"></div>
+  </div>
+  <div class="card">
+    <h2 id="airTitle"></h2>
+    <p class="sub" id="airSub"></p>
+    <embabel-operation-state id="st-air"></embabel-operation-state>
+    <div id="p-air"></div>
+  </div>
+  <div class="card">
+    <h2 id="alertsTitle"></h2>
+    <p class="sub" id="alertsSub"></p>
+    <embabel-operation-state id="st-alerts"></embabel-operation-state>
+    <div id="p-alerts"></div>
+  </div>
+  <div class="card">
+    <h2 id="riversTitle"></h2>
+    <p class="sub" id="riversSub"></p>
+    <embabel-operation-state id="st-rivers"></embabel-operation-state>
+    <div class="tblwrap" id="p-rivers"></div>
+  </div>
+</div>
+
+<footer class="foot">
+  <span id="footerLine"></span>
+  <span class="spacer"></span>
+  <a href="#how-it-works" id="howLink" aria-label="How it works / Comment ça marche">How it works</a>
+</footer>
+
+<section id="how-it-works" class="card">
+  <h2>How it works</h2>
+  <p><em>La page technique « Comment ça marche » est offerte en anglais seulement pour l'instant ; l'application elle-même est entièrement bilingue.</em></p>
+  <p><a href="#">Close / Fermer</a></p>
+
+  <h3>1 · The data</h3>
+  <table>
+    <tr><th>What</th><th>Source</th><th>Freshness</th></tr>
+    <tr><td>Watched places (CaPlace)</td><td>Stored in your world's graph; geography resolved once from Represent when a place is added</td><td>Stored</td></tr>
+    <tr><td>Sitting MP, riding, party, photo</td><td>House of Commons record via Represent (Open North), realm ca-streets</td><td>Cached 7 days</td></tr>
+    <tr><td>All elected reps at the postal code</td><td>Represent (Open North)</td><td>Cached 7 days</td></tr>
+    <tr><td>Population, median age, household income, dwelling value, unemployment</td><td>Statistics Canada, Census Profile 2021 (SDMX), census-subdivision level</td><td>Cached 7 days; census vintage 2021 (incomes 2020)</td></tr>
+    <tr><td>AQHI air quality</td><td>Environment Canada MSC GeoMet, latest observation per station (English and French station names from the source)</td><td>Cached 30 min</td></tr>
+    <tr><td>River gauges</td><td>Water Survey of Canada via GeoMet, 5-minute readings</td><td>Cached 30 min</td></tr>
+    <tr><td>Weather alerts</td><td>Environment Canada, active alerts, official wording in both languages</td><td>Cached 30 min — still the shortest cache here, so the alerts panel is the one that sometimes pays a cold multi-second fetch; the dossier deliberately does not depend on it</td></tr>
+    <tr><td>Current conditions</td><td>weather.gc.ca city pages via GeoMet, condition text in both languages</td><td>Cached 30 min</td></tr>
+  </table>
+  <p>Everything except the places themselves is <em>virtual</em>: fetched from the source when a view runs, cached at the source's own cadence, never mirrored. "Now" means "as of the cache age above". French text is the SOURCE's own French (Environment Canada publishes both official languages); the app never machine-translates data.</p>
+
+  <h3>2 · The questions</h3>
+  <p>Every panel runs a saved view by name through the app runtime (<code>embabel.views.invoke</code>). The views this page calls: <code>CaPlaceDossier</code> (the map and the dossier card — deliberately excludes the alert join so first paint stays fast), <code>WhoRepresentsMe</code>, <code>AffordabilityGap</code>, <code>PartyLedger</code>, <code>SplitRepresentation</code>, <code>AirVsIncome</code>, <code>AlertsAtMyMPs</code> (which owns the alert fetch; the dossier's alert pill is derived from its rows), <code>AirQualityNow</code>, and <code>RiversNearMe</code>. Adding a place by postal code calls <code>gateway.represent.representPostcode</code> once, then <code>gateway.repository.createEntry</code>. Adding a place by NAME calls <code>gateway.nrcanGeolocator.nrcanGeolocate</code> (NRCan place-name search), then <code>gateway.represent.csdForPoint</code> and <code>gateway.represent.mpForPoint</code> for the census key and the riding, then <code>createEntry</code> — such a place has no postal code, so its full representative slate stays empty (the page says so in place). No other calls are made.</p>
+  <p>The dossier view — the exact query that runs:</p>
+  <pre>MATCH (p:CaPlace)
+OPTIONAL MATCH (p)-[:HAS_SEAT]-&gt;(s0:CaSeat)
+WITH p, collect(s0)[0] AS s
+OPTIONAL MATCH (p)-[:HAS_POPULATION]-&gt;(pop:CaPopulation)
+WITH p, s, max(toFloat(pop.value)) AS population
+OPTIONAL MATCH (p)-[:HAS_MEDIAN_AGE]-&gt;(ma:CaMedianAge)
+WITH p, s, population, max(toFloat(ma.value)) AS medianAge
+OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]-&gt;(inc:CaHouseholdIncome)
+WITH p, s, population, medianAge, max(toFloat(inc.value)) AS medianHouseholdIncome
+OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]-&gt;(dv:CaDwellingValue)
+WITH p, s, population, medianAge, medianHouseholdIncome, max(toFloat(dv.value)) AS medianDwellingValue
+OPTIONAL MATCH (p)-[:HAS_UNEMPLOYMENT]-&gt;(un:CaUnemployment)
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, max(toFloat(un.value)) AS unemploymentRate
+OPTIONAL MATCH (p)-[:HAS_AIR]-&gt;(a:AirQualityObs)
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, max(toFloat(a.aqhi)) AS worstAqhi
+OPTIONAL MATCH (p)-[:HAS_WEATHER]-&gt;(w0:LocalWeather)
+WITH p, s, population, medianAge, medianHouseholdIncome, medianDwellingValue, unemploymentRate, worstAqhi, collect(w0)[0] AS w
+RETURN p.name AS place, p.city AS city, p.province AS province, p.postalCode AS postalCode,
+       toFloat(p.latitude) AS latitude, toFloat(p.longitude) AS longitude,
+       s.riding AS riding, s.mp AS mp, s.party AS party, s.photo AS photo, s.email AS email, s.gender AS gender,
+       population, medianAge, medianHouseholdIncome, medianDwellingValue,
+       unemploymentRate, worstAqhi,
+       toFloat(w.temperature) AS temperatureC, w.condition AS condition, w.conditionFr AS conditionFr
+ORDER BY place LIMIT $limit</pre>
+  <p>Split representation — the join and the <code>aligned</code> definition (a shared party-name stem, nothing more):</p>
+  <pre>MATCH (p:CaPlace)-[:HAS_REP]-&gt;(f:ElectedRep {office:'MP'})
+MATCH (p)-[:HAS_REP]-&gt;(pr:ElectedRep)
+WHERE pr.office IN ['MPP','MLA','MNA','MHA']
+RETURN p.name AS place, f.name AS mp, f.party AS federalParty,
+       pr.name AS provincialRep, pr.office AS provincialOffice, pr.party AS provincialParty,
+       any(stem IN ['Liberal','Conservative','New Democratic','Green']
+           WHERE f.party CONTAINS stem AND pr.party CONTAINS stem) AS aligned
+ORDER BY aligned, place LIMIT $limit</pre>
+  <p>The affordability gap — the ratio and its null rule:</p>
+  <pre>MATCH (p:CaPlace)
+OPTIONAL MATCH (p)-[:HAS_DWELLING_VALUE]-&gt;(d:CaDwellingValue)
+WITH p, max(toFloat(d.value)) AS dwelling
+OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]-&gt;(i:CaHouseholdIncome)
+WITH p, dwelling, max(toFloat(i.value)) AS income
+RETURN p.name AS place, p.city AS city, p.province AS province,
+       dwelling AS medianDwellingValue, income AS medianHouseholdIncome,
+       CASE WHEN income IS NULL OR income = 0 OR dwelling IS NULL THEN null
+            ELSE round(10.0 * dwelling / income) / 10.0 END AS yearsOfIncomePerHome
+ORDER BY yearsOfIncomePerHome IS NULL, yearsOfIncomePerHome DESC LIMIT $limit</pre>
+
+  <h3>3 · When it looks wrong</h3>
+  <ul>
+    <li><b>No AQHI at a Québec place</b> is coverage, not clean air: the federal AQHI network does not include Québec, which runs its own IQA network. Elsewhere, no row means no monitoring station within ~0.7° of the place.</li>
+    <li><b>The alerts panel arriving after everything else</b> is by design: alerts have the shortest cache (10 minutes) and the occasional cold fetch is paid there, never by the dossier.</li>
+    <li><b>"Alerts" empty</b> is the answer you want — no active Environment Canada alert touches any watched place.</li>
+    <li><b>A place missing from Split representation</b> means Represent carries no provincial member for that postal code (its municipal and provincial coverage varies) — not that the seat is vacant.</li>
+    <li><b>Census figures describe the whole municipality</b> — Toronto's median household income covers 2.8&nbsp;million people, not one street. Incomes are 2020; the unemployment rate is the census reference week of May 2021, mid-pandemic.</li>
+    <li><b>Null condition or temperature</b> overnight is normal — some weather.gc.ca sites stop reporting current conditions for a few hours.</li>
+    <li><b>"Request failed"</b> in any panel means the fetch itself failed, not that the answer is empty — the two are worded differently everywhere in this app, in both languages.</li>
+  </ul>
+
+  <h3>4 · What made this possible</h3>
+  <p>Each panel is a saved view executed by name; the joins (census income under an MP's party, a live weather alert beside the member for the riding) are computed inside the query that fetches the rows, by an engine that fetches from Represent, StatCan and Environment Canada on demand and caches each at its own cadence. The realm also ships a <code>warmLiveFeeds</code> verb (and a 9-minute schedule, pending host activation) that re-traverses the live joins to keep those caches warm. There is no backend for this page, no ETL pipeline, and no mirror of any register — delete the app and nothing else changes; install the realm anywhere and the same page works over that world's places.</p>
+</section>
+
+</div>
+
+<div id="embabel-badge" style="position:fixed;bottom:0;left:0;right:0;text-align:center;padding:6px 0;background:rgba(10,10,15,0.9);border-top:1px solid rgba(99,192,245,0.2);font-size:0.75rem;color:#6b7280;z-index:9999;pointer-events:none;">
+  Created with <a href="https://embabel.com" target="_blank" rel="noopener noreferrer" style="color:#63c0f5;text-decoration:none;pointer-events:auto;">Embabel Me</a>
+</div>
+
+<script>
+'use strict';
+/* ── static geometry: Natural Earth 50m Canada outline (public domain), decimated ── */
+const CANADA_RINGS = [[[-130.0,55.9],[-130.9,56.4],[-131.9,56.7],[-132.6,57.5],[-133.3,58.2],[-134.1,58.8],[-134.9,59.3],[-135.9,59.7],[-136.8,59.2],[-138.0,59.4],[-138.9,59.9],[-140.0,60.2],[-141.0,60.6],[-141.0,62.1],[-141.0,63.5],[-141.0,65.0],[-141.0,66.4],[-141.0,67.9],[-141.0,69.4],[-139.2,69.5],[-138.1,69.2],[-136.7,68.9],[-135.4,68.7],[-134.5,69.5],[-133.2,69.4],[-131.9,69.8],[-130.9,70.1],[-129.7,70.2],[-130.7,69.7],[-131.9,69.5],[-133.0,69.1],[-131.8,69.3],[-130.7,69.5],[-129.6,69.8],[-128.4,70.0],[-127.4,70.4],[-126.6,69.7],[-125.5,69.4],[-124.8,70.0],[-124.0,69.4],[-123.1,69.7],[-121.7,69.8],[-120.3,69.4],[-118.9,69.3],[-117.3,68.9],[-116.1,68.8],[-114.6,68.7],[-115.2,68.0],[-114.1,67.7],[-112.5,67.7],[-111.3,67.8],[-110.1,68.0],[-109.1,67.7],[-108.0,67.3],[-107.4,66.4],[-107.6,67.5],[-106.9,68.1],[-105.9,68.4],[-107.1,68.3],[-108.3,68.2],[-107.4,68.7],[-106.3,68.9],[-105.4,68.5],[-104.5,68.1],[-103.0,67.9],[-101.9,67.7],[-100.6,67.8],[-99.3,67.7],[-98.0,67.7],[-97.4,68.5],[-96.5,68.1],[-96.0,67.3],[-95.5,68.0],[-94.3,68.3],[-93.9,69.4],[-95.3,69.7],[-96.3,70.0],[-96.5,71.1],[-95.4,71.5],[-94.6,72.0],[-93.6,71.6],[-92.9,70.9],[-92.0,70.4],[-92.8,69.7],[-91.5,69.6],[-90.6,68.9],[-89.4,69.2],[-88.3,69.0],[-88.2,67.8],[-87.4,67.2],[-86.5,67.6],[-85.8,68.3],[-84.9,68.8],[-85.4,69.5],[-84.3,69.8],[-83.0,69.7],[-82.0,69.3],[-82.5,68.5],[-81.9,67.8],[-82.2,66.8],[-83.2,66.4],[-84.2,66.7],[-85.2,66.4],[-86.6,66.5],[-87.0,65.5],[-88.1,65.4],[-89.1,65.7],[-90.3,65.9],[-89.2,65.4],[-87.9,65.3],[-88.4,64.1],[-89.7,64.1],[-90.6,63.6],[-91.9,63.8],[-93.4,64.0],[-92.3,63.7],[-91.1,63.5],[-91.9,62.8],[-92.8,62.4],[-93.4,61.7],[-94.2,61.0],[-94.7,60.1],[-94.7,58.9],[-93.5,58.7],[-92.8,58.1],[-92.7,57.0],[-91.1,57.2],[-89.8,57.0],[-88.7,56.7],[-87.6,56.1],[-86.4,55.8],[-85.4,55.4],[-84.2,55.3],[-82.9,55.2],[-82.4,54.5],[-82.1,53.4],[-81.6,52.4],[-80.7,51.8],[-80.0,51.2],[-78.8,51.4],[-78.6,52.5],[-79.0,53.4],[-79.4,54.3],[-78.5,55.0],[-77.3,55.6],[-76.6,56.2],[-76.8,57.6],[-77.6,58.2],[-78.5,58.6],[-77.8,59.3],[-77.6,60.5],[-77.8,61.7],[-77.4,62.6],[-75.8,62.3],[-74.6,62.1],[-73.6,62.5],[-72.6,62.1],[-71.6,61.6],[-70.7,61.1],[-69.4,60.9],[-70.0,60.0],[-69.3,59.3],[-70.2,58.8],[-68.9,58.9],[-68.4,58.2],[-67.2,58.4],[-66.2,58.8],[-65.5,59.4],[-64.9,60.3],[-64.1,59.8],[-63.4,59.1],[-62.6,58.5],[-61.9,57.9],[-61.3,57.0],[-62.5,56.8],[-61.5,56.4],[-60.6,55.8],[-59.8,55.3],[-58.8,54.8],[-57.6,54.7],[-58.6,54.1],[-59.7,53.8],[-58.3,54.1],[-57.1,53.8],[-56.0,53.5],[-55.7,52.4],[-56.5,51.7],[-57.8,51.4],[-59.1,50.9],[-59.9,50.3],[-61.2,50.2],[-62.5,50.3],[-63.9,50.3],[-65.2,50.3],[-66.4,50.2],[-67.2,49.6],[-68.3,49.2],[-69.2,48.6],[-70.4,48.4],[-70.7,47.1],[-71.6,46.7],[-72.7,46.3],[-73.5,45.7],[-74.4,45.2],[-75.4,44.8],[-76.2,44.2],[-77.1,43.6],[-78.5,43.6],[-79.0,42.8],[-80.0,42.4],[-81.3,42.2],[-82.2,41.8],[-83.1,42.3],[-82.4,43.0],[-82.3,44.2],[-82.6,45.3],[-83.6,45.8],[-84.2,46.5],[-85.1,47.0],[-86.0,47.4],[-87.2,47.8],[-88.2,48.2],[-89.3,48.0],[-90.6,48.1],[-91.9,48.2],[-92.8,48.6],[-94.1,48.7],[-94.9,49.3],[-96.3,49.0],[-98.0,49.0],[-99.7,49.0],[-101.4,49.0],[-103.1,49.0],[-104.8,49.0],[-106.5,49.0],[-108.2,49.0],[-109.9,49.0],[-111.6,49.0],[-113.3,49.0],[-115.0,49.0],[-116.7,49.0],[-118.4,49.0],[-120.1,49.0],[-121.8,49.0],[-123.1,49.1],[-123.9,49.5],[-124.8,50.0],[-125.5,50.6],[-126.5,51.1],[-127.7,51.3],[-126.7,51.7],[-127.9,52.0],[-127.0,52.7],[-127.9,52.2],[-128.5,53.1],[-129.7,53.3],[-130.3,54.3],[-129.8,55.3]],[[-86.6,71.0],[-85.1,71.2],[-85.8,72.0],[-84.6,72.1],[-85.6,72.6],[-84.3,72.8],[-85.4,73.0],[-84.4,73.5],[-83.0,73.7],[-81.6,73.7],[-80.7,73.2],[-81.2,72.3],[-79.9,72.2],[-78.8,71.9],[-77.5,72.2],[-78.5,72.5],[-77.3,72.7],[-76.1,72.6],[-75.0,72.3],[-75.9,71.7],[-74.9,72.1],[-73.9,71.8],[-72.6,71.6],[-71.3,71.4],[-72.3,70.9],[-71.0,71.0],[-71.8,70.5],[-70.6,70.7],[-69.3,70.8],[-70.1,70.1],[-68.8,70.2],[-67.4,70.0],[-68.4,69.6],[-67.2,69.5],[-68.4,69.2],[-67.8,68.5],[-66.9,68.1],[-65.7,68.0],[-64.5,67.8],[-63.7,67.3],[-62.8,66.9],[-61.5,66.8],[-62.5,66.4],[-63.2,65.7],[-64.0,65.1],[-65.1,65.5],[-64.6,66.3],[-65.8,66.0],[-66.7,66.5],[-67.6,65.9],[-68.5,66.2],[-67.9,65.6],[-67.0,65.1],[-65.8,64.9],[-65.1,64.1],[-64.5,63.4],[-65.1,62.6],[-66.2,63.1],[-67.5,63.5],[-68.6,63.7],[-67.9,63.1],[-67.0,62.7],[-66.1,62.2],[-67.3,62.1],[-68.5,62.3],[-69.5,62.7],[-70.8,62.9],[-71.9,63.4],[-72.6,64.0],[-73.4,64.6],[-74.6,64.8],[-75.7,64.5],[-76.9,64.2],[-78.0,64.5],[-77.4,65.2],[-76.1,65.3],[-74.8,65.4],[-73.6,65.5],[-74.4,66.1],[-73.4,66.6],[-72.5,67.1],[-73.1,68.1],[-73.8,68.7],[-74.9,68.9],[-76.2,68.7],[-76.7,69.6],[-77.7,70.0],[-78.6,70.4],[-79.5,69.9],[-80.7,70.1],[-82.0,69.9],[-83.1,70.0],[-84.5,70.0],[-86.2,70.1],[-87.5,70.3],[-88.7,70.5],[-89.4,71.0],[-88.0,71.0],[-89.1,71.3],[-89.9,71.7],[-89.5,72.7],[-88.8,73.3],[-87.7,73.7],[-86.4,73.9],[-85.1,73.8],[-86.0,73.3],[-86.3,72.3],[-85.5,71.6],[-86.5,71.0]],[[-69.5,83.0],[-68.1,83.0],[-66.6,82.9],[-68.4,82.7],[-67.0,82.7],[-65.7,82.8],[-64.4,82.8],[-63.1,82.6],[-61.7,82.5],[-63.6,81.8],[-65.2,81.7],[-66.6,81.6],[-68.7,81.3],[-65.7,81.5],[-66.7,81.0],[-68.6,80.7],[-69.7,80.4],[-71.1,80.2],[-72.0,79.7],[-73.4,79.8],[-74.4,79.5],[-75.8,79.4],[-74.5,79.2],[-75.9,79.1],[-77.4,79.1],[-76.1,79.0],[-74.6,78.8],[-76.0,78.5],[-76.7,77.9],[-78.0,77.9],[-78.9,77.3],[-80.3,77.3],[-81.5,77.5],[-80.3,77.2],[-79.0,76.9],[-80.0,76.3],[-81.1,76.5],[-82.3,76.7],[-83.9,76.5],[-85.1,76.3],[-86.3,76.5],[-87.5,76.4],[-88.5,76.8],[-89.6,76.5],[-88.8,77.0],[-87.4,77.1],[-88.1,77.7],[-86.8,77.9],[-85.7,77.5],[-84.5,77.4],[-83.3,77.6],[-84.9,77.5],[-84.2,78.2],[-85.6,78.1],[-86.9,78.1],[-86.2,78.8],[-85.0,78.9],[-83.5,78.8],[-82.2,78.9],[-83.8,78.9],[-84.8,79.5],[-86.0,79.7],[-85.2,80.3],[-83.7,80.2],[-82.4,79.9],[-81.0,79.6],[-82.3,80.1],[-81.0,80.4],[-79.7,80.6],[-78.4,80.8],[-76.9,80.9],[-78.6,80.9],[-77.5,81.3],[-78.7,81.2],[-79.8,80.8],[-81.0,80.7],[-82.4,80.6],[-83.6,80.7],[-85.1,80.5],[-86.5,80.6],[-85.2,81.0],[-83.3,81.1],[-85.8,81.0],[-87.1,80.7],[-88.6,80.8],[-87.4,81.0],[-85.8,81.1],[-87.3,81.1],[-88.9,81.1],[-87.6,81.5],[-89.0,81.5],[-90.3,81.4],[-91.7,81.6],[-90.5,81.9],[-89.2,82.0],[-87.6,82.1],[-86.4,82.0],[-85.0,82.0],[-86.6,82.2],[-85.3,82.4],[-83.8,82.4],[-82.8,82.1],[-80.5,82.0],[-82.0,82.3],[-80.9,82.6],[-79.0,82.7],[-80.1,82.9],[-78.5,82.9],[-77.2,82.8],[-76.1,82.5],[-77.0,83.0],[-75.7,83.0],[-74.4,83.0],[-73.3,82.8],[-72.1,83.1],[-70.9,82.9],[-69.8,83.1]],[[-55.5,51.5],[-56.1,50.8],[-56.7,50.1],[-55.8,49.5],[-54.5,49.5],[-53.6,49.1],[-53.9,48.0],[-53.1,47.5],[-54.0,46.8],[-54.8,47.4],[-55.7,46.9],[-55.0,47.5],[-56.1,47.8],[-57.5,47.6],[-58.9,47.6],[-58.5,48.4],[-58.0,49.2],[-57.6,50.2],[-57.0,50.9],[-56.2,51.5]],[[-114.5,72.6],[-113.4,72.9],[-112.0,72.9],[-111.3,72.4],[-110.2,72.7],[-109.0,72.6],[-108.3,71.9],[-108.2,73.2],[-107.0,73.3],[-105.8,73.0],[-104.9,72.0],[-104.2,70.9],[-103.2,70.5],[-102.0,70.3],[-100.9,69.9],[-102.2,69.8],[-103.4,69.7],[-102.2,69.5],[-102.8,68.8],[-104.4,68.9],[-105.5,69.1],[-106.5,69.4],[-107.4,69.0],[-108.7,68.8],[-110.0,68.6],[-111.3,68.5],[-112.7,68.5],[-113.6,68.8],[-114.7,69.3],[-116.1,69.3],[-117.1,69.8],[-115.5,70.3],[-114.2,70.3],[-112.6,70.2],[-113.8,70.7],[-115.3,70.6],[-117.0,70.6],[-118.3,70.9],[-116.8,71.3],[-115.5,71.5],[-116.8,71.4],[-118.2,71.4],[-119.0,72.0],[-118.1,72.6],[-117.0,73.0],[-115.6,73.2],[-114.3,73.3]],[[-67.1,45.2],[-67.8,45.8],[-67.9,47.2],[-69.1,47.4],[-69.9,46.8],[-70.3,45.9],[-71.0,45.3],[-72.3,45.0],[-74.0,45.0],[-73.4,45.8],[-72.5,46.4],[-71.4,46.7],[-70.4,47.1],[-69.6,47.8],[-68.8,48.4],[-67.6,48.9],[-66.2,49.2],[-64.8,49.2],[-65.3,48.0],[-66.7,48.0],[-65.7,47.7],[-64.9,47.1],[-64.2,46.2],[-63.3,45.8],[-62.0,45.9],[-61.1,45.3],[-62.3,44.9],[-63.3,44.6],[-64.3,44.3],[-65.1,43.7],[-66.2,44.1],[-65.5,44.7],[-64.4,45.3],[-65.9,45.2]],[[-94.3,76.9],[-93.2,76.7],[-91.8,76.7],[-90.6,76.5],[-89.3,76.3],[-90.8,76.2],[-89.7,75.9],[-88.6,75.6],[-87.3,75.6],[-86.0,75.4],[-84.8,75.7],[-83.2,75.8],[-81.6,75.8],[-80.3,75.6],[-79.5,75.0],[-81.2,74.6],[-82.6,74.5],[-84.2,74.5],[-85.5,74.6],[-86.7,74.5],[-88.0,74.5],[-89.1,74.7],[-90.4,74.6],[-91.7,74.7],[-92.4,75.3],[-92.9,76.2],[-94.4,76.3],[-95.8,76.4],[-96.8,76.7],[-95.8,77.1],[-94.6,77.0]],[[-91.9,81.1],[-90.7,80.7],[-89.5,80.5],[-88.5,80.1],[-87.2,80.0],[-86.2,79.6],[-85.1,79.3],[-86.5,79.0],[-87.5,78.7],[-88.7,78.6],[-90.0,78.6],[-90.9,78.2],[-92.4,78.3],[-93.4,78.6],[-92.5,79.3],[-91.3,79.4],[-92.6,79.5],[-93.9,79.3],[-95.3,79.4],[-96.5,79.8],[-94.6,80.0],[-95.9,80.2],[-95.0,80.6],[-93.8,81.1],[-92.4,81.3]],[[-108.3,76.1],[-107.1,75.9],[-105.9,76.0],[-106.6,75.0],[-108.0,75.0],[-109.5,74.9],[-110.7,74.7],[-112.5,74.4],[-113.8,74.5],[-112.8,75.0],[-111.5,75.1],[-112.7,75.2],[-113.9,75.4],[-114.9,75.0],[-116.1,75.0],[-117.5,75.2],[-116.2,75.5],[-115.1,75.7],[-116.4,75.6],[-115.2,75.9],[-116.7,75.9],[-114.9,76.2],[-113.4,76.2],[-111.9,75.9],[-110.9,75.5],[-109.1,75.5],[-109.7,76.2],[-108.8,76.8],[-108.3,76.1]]];
+
+/* ── i18n — the whole chrome in both official languages; DATA French comes
+   from the sources' own French fields (conditionFr, alertFr, stationFr),
+   never from machine translation. ── */
+const I18N = {
+  tagline: { en: 'Street-level Canada, joined under the leaf — <b>Parliament · StatCan · Environment Canada</b>, one graph, your postal codes.',
+             fr: 'Le Canada à l’échelle de la rue, réuni sous la feuille — <b>Parlement · StatCan · Environnement Canada</b>, un seul graphe, vos codes postaux.' },
+  mapTitle: { en: 'Your Canada', fr: 'Votre Canada' },
+  mapSub: { en: 'Each dot is a watched place. Click one — the dossier joins seven official datasets at that point.',
+            fr: 'Chaque point est un lieu surveillé. Cliquez — le dossier réunit sept jeux de données officiels à cet endroit.' },
+  dossierTitle: { en: 'Place dossier', fr: 'Dossier du lieu' },
+  dossierSub: { en: 'One postal code, every register that knows something about it.',
+                fr: 'Un code postal, tous les registres qui en savent quelque chose.' },
+  affordTitle: { en: 'The affordability gap', fr: 'L’écart d’abordabilité' },
+  affordSub: { en: 'Years of the municipality’s median household income to buy its median dwelling — StatCan ÷ StatCan, a ratio no register publishes.',
+               fr: 'Années de revenu médian des ménages pour acheter le logement médian de la municipalité — StatCan ÷ StatCan, un ratio qu’aucun registre ne publie.' },
+  ledgerTitle: { en: 'The ledger, by party', fr: 'Le grand livre, par parti' },
+  ledgerSub: { en: 'StatCan’s census figures under Parliament’s colours — averages of municipal medians across <em>your</em> watchlist.',
+               fr: 'Les chiffres du recensement sous les couleurs du Parlement — moyennes des médianes municipales de <em>votre</em> liste.' },
+  splitTitle: { en: 'Split representation', fr: 'Représentation divisée' },
+  splitSub: { en: 'Places whose federal and provincial reps come from different political families. Name-family match only — provincial parties are separate organisations.',
+              fr: 'Lieux dont les élus fédéral et provincial viennent de familles politiques différentes. Correspondance de nom seulement — les partis provinciaux sont des organisations distinctes.' },
+  airTitle: { en: 'Air vs income', fr: 'Air et revenu' },
+  airSub: { en: 'Worst current AQHI beside median household income — Environment Canada joined to StatCan, right now.',
+            fr: 'Pire CAS actuel à côté du revenu médian des ménages — Environnement Canada joint à StatCan, en ce moment.' },
+  alertsTitle: { en: 'Alerts at my MPs', fr: 'Alertes chez mes députés' },
+  alertsSub: { en: 'Live Environment Canada alerts joined to the riding’s sitting MP — a join neither institution publishes.',
+               fr: 'Alertes en direct d’Environnement Canada jointes au député de la circonscription — une jointure qu’aucune des deux institutions ne publie.' },
+  riversTitle: { en: 'Rivers, right now', fr: 'Les rivières, en ce moment' },
+  riversSub: { en: 'Latest Water Survey gauge readings near each place. Levels are metres on each station’s own datum — compare a station with itself, never rivers with each other.',
+               fr: 'Dernières lectures des stations hydrométriques près de chaque lieu. Les niveaux sont en mètres sur le zéro propre à chaque station — comparez une station à elle-même, jamais les rivières entre elles.' },
+  namePh: { en: 'Name this place', fr: 'Nommez ce lieu' },
+  codePh: { en: 'Postal code or place name', fr: 'Code postal ou nom de lieu' },
+  watch: { en: 'Watch it', fr: 'Surveiller' },
+  refresh: { en: 'Refresh', fr: 'Actualiser' },
+  footerLine: { en: '🍁 Maple Lens · data © Parliament of Canada, Statistics Canada, Environment and Climate Change Canada, Open North’s Represent',
+                fr: '🍁 Maple Lens · données © Parlement du Canada, Statistique Canada, Environnement et Changement climatique Canada, Represent d’Open North' },
+  how: { en: 'How it works', fr: 'Comment ça marche' },
+  loadingPlaces: { en: 'Loading places…', fr: 'Chargement des lieux…' },
+  noPlaces: { en: 'No places watched yet — add a postal code above and the joins light up.',
+              fr: 'Aucun lieu surveillé pour l’instant — ajoutez un code postal ci-dessus et les jointures s’allument.' },
+  mpM: { en: 'MP for', fr: 'Député de' },
+  mpF: { en: 'MP for', fr: 'Députée de' },
+  everyoneReps: { en: 'Everyone who represents this address', fr: 'Tous ceux et celles qui représentent cette adresse' },
+  airByStation: { en: 'Air, station by station', fr: 'L’air, station par station' },
+  riversNear: { en: 'Rivers within ~20 km', fr: 'Rivières à moins d’environ 20 km' },
+  popLabel: { en: 'Population 2021', fr: 'Population 2021' },
+  incomeLabel: { en: 'Median hh income ’20', fr: 'Revenu médian ménage ’20' },
+  dwellingLabel: { en: 'Median dwelling', fr: 'Logement médian' },
+  affordLabel: { en: 'Income per home', fr: 'Années de revenu par maison' },
+  ageLabel: { en: 'Median age', fr: 'Âge médian' },
+  unempLabel: { en: 'Unemployment ’21', fr: 'Chômage ’21' },
+  yrs: { en: 'yrs', fr: 'ans' },
+  noConditions: { en: 'No current conditions reported', fr: 'Aucune condition actuelle rapportée' },
+  noAqhiQc: { en: 'No federal AQHI — Québec runs its own IQA network', fr: 'Pas de CAS fédérale — le Québec exploite son propre réseau IQA' },
+  noAqhi: { en: 'No AQHI station near this place (coverage, not clean air)', fr: 'Aucune station CAS près de ce lieu (couverture, pas air pur)' },
+  aqhi: { en: 'AQHI', fr: 'CAS' },
+  riskLow: { en: 'Low risk', fr: 'Risque faible' },
+  riskMod: { en: 'Moderate risk', fr: 'Risque modéré' },
+  riskHigh: { en: 'High risk', fr: 'Risque élevé' },
+  riskVHigh: { en: 'Very high risk', fr: 'Risque très élevé' },
+  activeAlert: { en: 'active alert', fr: 'alerte active' },
+  activeAlerts: { en: 'active alerts', fr: 'alertes actives' },
+  noActiveAlerts: { en: 'No active alerts', fr: 'Aucune alerte active' },
+  alertsChecking: { en: 'Checking alerts…', fr: 'Vérification des alertes…' },
+  repsEmpty: { en: 'Beyond the MP, Represent lists no further reps for this postal code — coverage, not vacancies.',
+               fr: 'Au-delà du député fédéral, Represent ne liste aucun autre élu pour ce code postal — couverture, pas vacance.' },
+  repsFailed: { en: 'The representatives request failed — a failed fetch, not an empty slate.',
+                fr: 'La requête des élus a échoué — un échec de lecture, pas une liste vide.' },
+  nonPartisan: { en: 'non-partisan', fr: 'sans étiquette' },
+  sameFamily: { en: 'same family', fr: 'même famille' },
+  splitBadge: { en: 'split', fr: 'divisé' },
+  affordEmpty: { en: 'No census income/dwelling figures yet for these places.',
+                 fr: 'Pas encore de chiffres de revenu/logement du recensement pour ces lieux.' },
+  ledgerEmpty: { en: 'No MP-to-census joins yet — watch a place first.',
+                 fr: 'Pas encore de jointure député-recensement — surveillez d’abord un lieu.' },
+  splitEmpty: { en: 'Represent lists no provincial member for any watched postal code — coverage, not vacancies.',
+                fr: 'Represent ne liste aucun élu provincial pour vos codes postaux — couverture, pas vacance.' },
+  airEmpty: { en: 'No watched places yet.', fr: 'Aucun lieu surveillé pour l’instant.' },
+  alertsEmptyGood: { en: 'No active Environment Canada alert touches any watched place right now — the answer you want.',
+                     fr: 'Aucune alerte active d’Environnement Canada ne touche vos lieux en ce moment — la réponse qu’on veut.' },
+  riversEmpty: { en: 'No hydrometric gauge within ~20 km of any watched place.',
+                 fr: 'Aucune station hydrométrique à moins d’environ 20 km de vos lieux.' },
+  noStation: { en: 'no station in range', fr: 'aucune station à portée' },
+  unmeasured: { en: 'unmeasured', fr: 'non mesuré' },
+  panelFailed: { en: 'This panel’s request failed — ', fr: 'La requête de ce panneau a échoué — ' },
+  panelFailedTail: { en: '. A failed fetch, not an empty answer.', fr: '. Un échec de lecture, pas une réponse vide.' },
+  noDetail: { en: 'no further detail', fr: 'aucun détail' },
+  dossierFailed: { en: 'The dossier request failed — ', fr: 'La requête du dossier a échoué — ' },
+  worldMissing: { en: 'This world is missing: ', fr: 'Il manque à ce monde : ' },
+  worldMissingTail: { en: ' — install the ca-streets realm and reload.', fr: ' — installez le domaine ca-streets et rechargez.' },
+  badInput: { en: 'Enter a postal code (A1A 1A1) or a Canadian place name.', fr: 'Entrez un code postal (A1A 1A1) ou un nom de lieu canadien.' },
+  searchingName: { en: 'Searching Canada for ', fr: 'Recherche au Canada de ' },
+  noSuchPlace: { en: 'No Canadian place by that name found (NRCan geolocation).', fr: 'Aucun lieu canadien de ce nom (géolocalisation de RNCan).' },
+  repsEmptyNamed: { en: 'This place was watched by NAME — the full representative slate needs a postal code (only the MP is resolved by coordinates).',
+                    fr: 'Ce lieu a été ajouté par son NOM — la liste complète des élus exige un code postal (seul le député fédéral est résolu par coordonnées).' },
+  resolving: { en: 'Resolving ', fr: 'Résolution de ' },
+  watching: { en: ' — re-asking every source…', fr: ' — nouvelle interrogation de chaque source…' },
+  noSuchPostal: { en: 'Represent knows no such postal code.', fr: 'Represent ne connaît pas ce code postal.' },
+  addFailed: { en: 'Adding the place failed — ', fr: 'L’ajout du lieu a échoué — ' },
+  expectation: { en: 'Asking Parliament, StatCan and Environment Canada about each watched place — a cold read fans out one call per source per place.',
+                 fr: 'Interrogation du Parlement, de StatCan et d’Environnement Canada pour chaque lieu — une lecture à froid lance un appel par source et par lieu.' },
+  thPlace: { en: 'Place', fr: 'Lieu' }, thFederal: { en: 'Federal', fr: 'Fédéral' },
+  thProvincial: { en: 'Provincial', fr: 'Provincial' }, thAlert: { en: 'Alert', fr: 'Alerte' },
+  thMP: { en: 'MP for the riding', fr: 'Député(e) de la circonscription' },
+  thStation: { en: 'Station', fr: 'Station' }, thLevel: { en: 'Level', fr: 'Niveau' },
+  thFlow: { en: 'Flow', fr: 'Débit' },
+  thWorstAqhi: { en: 'Worst AQHI now', fr: 'Pire CAS actuelle' },
+  thIncome: { en: 'Median hh income', fr: 'Revenu médian ménage' },
+  hhIncome: { en: 'hh income', fr: 'revenu ménage' }, dwelling: { en: 'dwelling', fr: 'logement' },
+  unemployed: { en: 'unemployed', fr: 'chômage' }, medianAgeShort: { en: 'median age', fr: 'âge médian' },
+  place1: { en: 'place', fr: 'lieu' }, placeN: { en: 'places', fr: 'lieux' },
+};
+const OFFICE_FR = { MP: 'Député(e) fédéral(e)', MPP: 'MPP', MLA: 'MLA', MNA: 'MNA', MHA: 'MHA',
+                    Mayor: 'Maire(sse)', Councillor: 'Conseiller(ère)', Commissioner: 'Commissaire' };
+/* Province name (as NRCan titles spell it) -> two-letter code, for name-added places. */
+const PROVINCE_MAP = { 'Ontario': 'ON', 'Quebec': 'QC', 'Québec': 'QC', 'British Columbia': 'BC',
+  'Alberta': 'AB', 'Manitoba': 'MB', 'Saskatchewan': 'SK', 'Nova Scotia': 'NS',
+  'New Brunswick': 'NB', 'Newfoundland and Labrador': 'NL', 'Prince Edward Island': 'PE',
+  'Yukon': 'YT', 'Northwest Territories': 'NT', 'Nunavut': 'NU' };
+function provinceFromTitle(title) {
+  for (const k in PROVINCE_MAP) { if (String(title || '').indexOf(k) !== -1) return PROVINCE_MAP[k]; }
+  return null;
+}
+
+let lang = 'en';
+try {
+  const saved = localStorage.getItem('mapleLang');
+  lang = saved ? saved : (((navigator.language || '').toLowerCase().indexOf('fr') === 0) ? 'fr' : 'en');
+} catch (e) { /* storage unavailable — English default */ }
+const t = (k) => (I18N[k] || {})[lang] || (I18N[k] || {}).en || k;
+
+/* ── helpers ── */
+const $ = (id) => document.getElementById(id);
+function escapeHtml(v) { return String(v == null ? '' : v)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+const locale = () => lang === 'fr' ? 'fr-CA' : 'en-CA';
+const fmt$ = (v) => v == null ? '—'
+  : new Intl.NumberFormat(locale(), { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(Number(v));
+const fmtN = (v) => v == null ? '—' : Number(v).toLocaleString(locale());
+const office = (o) => lang === 'fr' ? (OFFICE_FR[o] || o) : o;
+
+const PARTY_COLOURS = {
+  'Liberal': '#ef4b56', 'Liberal Party of Canada': '#ef4b56',
+  'Conservative': '#6193dd', 'Conservative Party of Canada': '#6193dd',
+  'NDP': '#d06d20', 'New Democratic Party': '#d06d20',
+  'Bloc Québécois': '#2e97bf', 'Green Party': '#4fa544', 'Green': '#4fa544'
+};
+const partyColour = (p) => PARTY_COLOURS[p] || '#9aa1ac';
+const partyChip = (p) => p
+  ? `<span class="partychip"><i style="background:${partyColour(p)}"></i>${escapeHtml(p)}</span>`
+  : `<span class="partychip"><i style="background:#555"></i>${t('nonPartisan')}</span>`;
+
+const aqhiBand = (v) => v == null ? null
+  : v <= 3 ? { label: t('riskLow'), colour: 'var(--ok)' }
+  : v <= 6 ? { label: t('riskMod'), colour: 'var(--warn)' }
+  : v <= 10 ? { label: t('riskHigh'), colour: 'var(--ndp)' }
+  : { label: t('riskVHigh'), colour: 'var(--bad)' };
+
+const rowsOf = (env) => {
+  if (!env) return [];
+  const d = env.data !== undefined ? env.data : env;
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.rows)) return d.rows;
+  return [];
+};
+
+/* ── Lambert conformal conic projection (std parallels 49/77, centre -95) ── */
+const D = Math.PI / 180;
+const LCC = (() => {
+  const p1 = 49 * D, p2 = 77 * D, lat0 = 60 * D, lon0 = -95 * D;
+  const n = Math.log(Math.cos(p1) / Math.cos(p2)) /
+            Math.log(Math.tan(Math.PI/4 + p2/2) / Math.tan(Math.PI/4 + p1/2));
+  const F = Math.cos(p1) * Math.pow(Math.tan(Math.PI/4 + p1/2), n) / n;
+  const r0 = F / Math.pow(Math.tan(Math.PI/4 + lat0/2), n);
+  return (lon, lat) => {
+    const r = F / Math.pow(Math.tan(Math.PI/4 + (lat*D)/2), n);
+    const th = n * ((lon*D) - lon0);
+    return [r * Math.sin(th), r0 - r * Math.cos(th)];
+  };
+})();
+
+let mapFit = null;
+function buildMap() {
+  const pts = [];
+  const paths = CANADA_RINGS.map(ring => {
+    let dstr = '';
+    ring.forEach(([lon, lat], i) => {
+      const [x, y] = LCC(lon, lat);
+      pts.push([x, y]);
+      dstr += (i ? 'L' : 'M') + x.toFixed(3) + ' ' + (-y).toFixed(3);
+    });
+    return dstr + 'Z';
+  });
+  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  for (const [x, y] of pts) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (-y < minY) minY = -y; if (-y > maxY) maxY = -y;
+  }
+  const W = 900, H = 700, pad = 24;
+  const sc = Math.min((W - 2*pad) / (maxX - minX), (H - 2*pad) / (maxY - minY));
+  const ox = pad - minX * sc + (W - 2*pad - (maxX - minX) * sc) / 2;
+  const oy = pad - minY * sc + (H - 2*pad - (maxY - minY) * sc) / 2;
+  mapFit = { sc, ox, oy };
+  const g = paths.map(p2 => `<path class="ring" d="${p2}"/>`).join('');
+  $('canvas').innerHTML =
+    `<g transform="translate(${ox},${oy}) scale(${sc})">${g}</g><g id="dots"></g>`;
+}
+const project = (lon, lat) => {
+  const [x, y] = LCC(lon, lat);
+  return [x * mapFit.sc + mapFit.ox, -y * mapFit.sc + mapFit.oy];
+};
+
+/* ── state: every panel keeps its rows so a language toggle re-renders
+   from cache — no refetch. ── */
+const S = { dossier: [], reps: [], rivers: [], airStations: [], selected: null,
+            repsFailed: false, loading: false,
+            afford: null, ledger: null, split: null, airVs: null, alerts: null,
+            alertCounts: null };
+
+/* ── chrome ── */
+function applyChrome() {
+  document.documentElement.lang = lang;
+  $('tagline').innerHTML = t('tagline');
+  $('mapTitle').textContent = t('mapTitle');
+  $('mapSub').textContent = t('mapSub');
+  $('dossierTitle').textContent = t('dossierTitle');
+  $('dossierSub').textContent = t('dossierSub');
+  $('affordTitle').textContent = t('affordTitle');
+  $('affordSub').textContent = t('affordSub');
+  $('ledgerTitle').textContent = t('ledgerTitle');
+  $('ledgerSub').innerHTML = t('ledgerSub');
+  $('splitTitle').textContent = t('splitTitle');
+  $('splitSub').textContent = t('splitSub');
+  $('airTitle').textContent = t('airTitle');
+  $('airSub').textContent = t('airSub');
+  $('alertsTitle').textContent = t('alertsTitle');
+  $('alertsSub').textContent = t('alertsSub');
+  $('riversTitle').textContent = t('riversTitle');
+  $('riversSub').textContent = t('riversSub');
+  $('addName').placeholder = t('namePh');
+  $('addCode').placeholder = t('codePh');
+  $('addBtn').textContent = t('watch');
+  $('refreshBtn').textContent = t('refresh');
+  $('langBtn').textContent = lang === 'fr' ? 'EN' : 'FR';
+  $('footerLine').textContent = t('footerLine');
+  $('howLink').textContent = t('how');
+}
+
+function renderAllPanels() {
+  if (S.afford) renderAfford(S.afford);
+  if (S.ledger) renderLedger(S.ledger);
+  if (S.split) renderSplit(S.split);
+  if (S.airVs) renderAir(S.airVs);
+  if (S.alerts) renderAlerts(S.alerts);
+  if (S.rivers.length || S.riversLoaded) renderRivers(S.rivers);
+}
+
+function setLang(next) {
+  lang = next;
+  try { localStorage.setItem('mapleLang', lang); } catch (e) { /* fine */ }
+  applyChrome();
+  renderChips(); renderDots(); renderDossier(); renderAllPanels();
+}
+
+/* ── map & dossier ── */
+function renderDots() {
+  if (!mapFit) return;
+  const dots = S.dossier.filter(r => r.latitude != null && r.longitude != null);
+  $('canvas').querySelector('#dots').innerHTML = dots.map(r => {
+    const [x, y] = project(r.longitude, r.latitude);
+    const sel = r.place === S.selected;
+    return `<circle class="halo" cx="${x}" cy="${y}" r="${sel ? 13 : 9}"></circle>
+      <circle class="dot${sel ? ' sel' : ''}" data-place="${escapeHtml(r.place)}" cx="${x}" cy="${y}" r="${sel ? 7 : 5.5}">
+        <title>${escapeHtml(r.place)} — ${escapeHtml(r.riding || r.city || '')}</title></circle>
+      <text class="maplabel" x="${x + 10}" y="${y + 4}">${escapeHtml(r.place.split(',')[0])}</text>`;
+  }).join('');
+  for (const el of $('canvas').querySelectorAll('.dot')) {
+    el.addEventListener('click', () => selectPlace(el.getAttribute('data-place')));
+  }
+}
+
+function renderChips() {
+  $('pchips').innerHTML = S.dossier.map(r =>
+    `<button class="pchip${r.place === S.selected ? ' sel' : ''}" data-place="${escapeHtml(r.place)}">${escapeHtml(r.place)}</button>`
+  ).join('');
+  for (const el of $('pchips').querySelectorAll('.pchip')) {
+    el.addEventListener('click', () => selectPlace(el.getAttribute('data-place')));
+  }
+}
+
+function selectPlace(name) {
+  S.selected = name;
+  renderChips(); renderDots(); renderDossier();
+}
+
+function renderDossier() {
+  const r = S.dossier.find(x => x.place === S.selected);
+  if (!r) { $('dossier').innerHTML = `<div class="emptymsg">${S.dossier.length ? '' : t('noPlaces')}</div>`; return; }
+  const initials = (r.mp || '?').split(/\s+/).map(w => w[0] || '').join('').slice(0, 2);
+  const afford = (r.medianDwellingValue != null && r.medianHouseholdIncome)
+    ? Math.round(10 * r.medianDwellingValue / r.medianHouseholdIncome) / 10 : null;
+  const band = aqhiBand(r.worstAqhi);
+  const aqhiHtml = band
+    ? `<span class="pill"><span class="dotc" style="background:${band.colour}"></span>${t('aqhi')} <b>${escapeHtml(r.worstAqhi)}</b>&nbsp;· ${band.label}</span>`
+    : `<span class="pill covnote">${r.province === 'QC' ? t('noAqhiQc') : t('noAqhi')}</span>`;
+  const cond = lang === 'fr' ? (r.conditionFr || r.condition) : r.condition;
+  const nAlerts = S.alertCounts ? (S.alertCounts[r.place] || 0) : null;
+  const alertPill = nAlerts == null
+    ? `<span class="pill covnote">${t('alertsChecking')}</span>`
+    : (nAlerts > 0
+      ? `<span class="pill"><span class="dotc" style="background:var(--bad)"></span><b>${nAlerts}</b>&nbsp;${nAlerts > 1 ? t('activeAlerts') : t('activeAlert')}</span>`
+      : `<span class="pill"><span class="dotc" style="background:var(--ok)"></span>${t('noActiveAlerts')}</span>`);
+  const mpLabel = r.gender === 'F' ? t('mpF') : t('mpM');
+  const reps = S.reps.filter(x => x.place === r.place && x.office !== 'MP');
+  const rivers = S.rivers.filter(x => x.place === r.place).slice(0, 4);
+  const stations = S.airStations.filter(x => x.place === r.place).slice(0, 4);
+  $('dossier').innerHTML = `
+    <div class="mpcard">
+      ${r.photo ? `<img class="mpphoto" src="${escapeHtml(r.photo)}" alt="">`
+                 : `<div class="noimg">${escapeHtml(initials)}</div>`}
+      <div class="who">
+        <div class="nm">${escapeHtml(r.mp || '—')} ${partyChip(r.party)}</div>
+        <div class="rd">${mpLabel} ${escapeHtml(r.riding || '—')} · ${escapeHtml(r.city || '')}, ${escapeHtml(r.province || '')} ${escapeHtml(r.postalCode || '')}</div>
+        ${r.email ? `<div class="em"><a href="mailto:${escapeHtml(r.email)}">${escapeHtml(r.email)}</a></div>` : ''}
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="v">${fmtN(r.population)}</div><div class="k">${t('popLabel')}</div></div>
+      <div class="tile"><div class="v">${fmt$(r.medianHouseholdIncome)}</div><div class="k">${t('incomeLabel')}</div></div>
+      <div class="tile"><div class="v">${fmt$(r.medianDwellingValue)}</div><div class="k">${t('dwellingLabel')}</div></div>
+      <div class="tile hot"><div class="v">${afford == null ? '—' : fmtN(afford) + ' ' + t('yrs')}</div><div class="k">${t('affordLabel')}</div></div>
+      <div class="tile"><div class="v">${r.medianAge == null ? '—' : fmtN(r.medianAge)}</div><div class="k">${t('ageLabel')}</div></div>
+      <div class="tile"><div class="v">${r.unemploymentRate == null ? '—' : fmtN(r.unemploymentRate) + ' %'}</div><div class="k">${t('unempLabel')}</div></div>
+    </div>
+    <div class="liverow">
+      ${r.temperatureC != null ? `<span class="pill"><b>${fmtN(r.temperatureC)} °C</b>${cond ? '&nbsp;· ' + escapeHtml(cond) : ''}</span>` : `<span class="pill covnote">${t('noConditions')}</span>`}
+      ${aqhiHtml}
+      ${alertPill}
+    </div>
+    <div class="minihead">${t('everyoneReps')}</div>
+    <div class="minilist">${reps.length ? reps.map(x => `
+      <div class="row"><span class="l">${escapeHtml(office(x.office))} · ${escapeHtml(x.name)}</span>
+      <span class="r">${x.party ? partyChip(x.party) : escapeHtml(x.district || '')}</span></div>`).join('')
+      : (S.repsFailed
+        ? `<div class="errbox">${t('repsFailed')}</div>`
+        : `<div class="emptymsg">${r.postalCode ? t('repsEmpty') : t('repsEmptyNamed')}</div>`)}
+    </div>
+    ${stations.length ? `<div class="minihead">${t('airByStation')}</div>
+    <div class="minilist">${stations.map(x => `
+      <div class="row"><span class="l">${escapeHtml(lang === 'fr' ? (x.stationFr || x.station) : x.station)}</span>
+      <span class="r">${t('aqhi')} ${escapeHtml(x.aqhi)} · ${escapeHtml(riskLabel(x.aqhi))}</span></div>`).join('')}</div>` : ''}
+    ${rivers.length ? `<div class="minihead">${t('riversNear')}</div>
+    <div class="minilist">${rivers.map(x => `
+      <div class="row"><span class="l">${escapeHtml(x.station)}</span>
+      <span class="r">${x.levelMetres == null ? '—' : fmtN(x.levelMetres) + ' m'}${x.dischargeM3s != null ? ' · ' + fmtN(x.dischargeM3s) + ' m³/s' : ''}</span></div>`).join('')}</div>` : ''}`;
+  const ph = $('dossier').querySelector('img.mpphoto');
+  if (ph) ph.addEventListener('error', () => {
+    const fb = document.createElement('div');
+    fb.className = 'noimg'; fb.textContent = initials;
+    ph.replaceWith(fb);
+  });
+}
+
+function riskLabel(v) {
+  const b = aqhiBand(Number(v));
+  return b ? b.label : '—';
+}
+
+/* ── join panels — each renders from cached rows so the toggle is instant ── */
+function renderAfford(rows) {
+  const withRatio = rows.filter(r => r.yearsOfIncomePerHome != null);
+  if (!withRatio.length) { $('p-afford').innerHTML = `<div class="emptymsg">${t('affordEmpty')}</div>`; return; }
+  const maxV = Math.max(...withRatio.map(r => r.yearsOfIncomePerHome));
+  $('p-afford').innerHTML = withRatio.map(r => `
+    <div class="bar" title="${escapeHtml(r.place)}: ${fmt$(r.medianDwellingValue)} ÷ ${fmt$(r.medianHouseholdIncome)}">
+      <span class="nm">${escapeHtml(r.place)}</span>
+      <span class="tr"><span class="fl" style="width:${(100 * r.yearsOfIncomePerHome / maxV).toFixed(1)}%"></span></span>
+      <span class="vv">${fmtN(r.yearsOfIncomePerHome)} ${lang === 'fr' ? 'a' : 'y'}</span>
+    </div>`).join('');
+}
+
+function renderLedger(rows) {
+  if (!rows.length) { $('p-ledger').innerHTML = `<div class="emptymsg">${t('ledgerEmpty')}</div>`; return; }
+  $('p-ledger').innerHTML = '<div class="ledger">' + rows.map(r => `
+    <div class="ledgerrow">
+      <div class="top">${partyChip(r.party)}<span style="color:var(--dim);font-size:12px">${escapeHtml(r.places)} ${r.places > 1 ? t('placeN') : t('place1')}</span></div>
+      <div class="nums">
+        <div><b>${fmt$(r.avgMedianHouseholdIncome)}</b><span>${t('hhIncome')}</span></div>
+        <div><b>${fmt$(r.avgMedianDwellingValue)}</b><span>${t('dwelling')}</span></div>
+        <div><b>${r.avgUnemploymentRate == null ? '—' : fmtN(r.avgUnemploymentRate) + ' %'}</b><span>${t('unemployed')}</span></div>
+        <div><b>${r.avgMedianAge == null ? '—' : fmtN(r.avgMedianAge)}</b><span>${t('medianAgeShort')}</span></div>
+      </div>
+    </div>`).join('') + '</div>';
+}
+
+function renderSplit(rows) {
+  if (!rows.length) { $('p-split').innerHTML = `<div class="emptymsg">${t('splitEmpty')}</div>`; return; }
+  $('p-split').innerHTML = `<table class="jt">
+    <tr><th>${t('thPlace')}</th><th>${t('thFederal')}</th><th>${t('thProvincial')}</th><th></th></tr>
+    ${rows.map(r => `<tr>
+      <td>${escapeHtml(r.place)}</td>
+      <td>${escapeHtml(r.mp)}<br>${partyChip(r.federalParty)}</td>
+      <td>${escapeHtml(r.provincialRep)} <span style="color:var(--dim)">(${escapeHtml(r.provincialOffice)})</span><br>${partyChip(r.provincialParty)}</td>
+      <td>${r.aligned ? `<span class="badge match">${t('sameFamily')}</span>` : `<span class="badge split">${t('splitBadge')}</span>`}</td>
+    </tr>`).join('')}</table>`;
+}
+
+function renderAir(rows) {
+  if (!rows.length) { $('p-air').innerHTML = `<div class="emptymsg">${t('airEmpty')}</div>`; return; }
+  $('p-air').innerHTML = `<table class="jt">
+    <tr><th>${t('thPlace')}</th><th>${t('thWorstAqhi')}</th><th>${t('thIncome')}</th></tr>
+    ${rows.map(r => {
+      const band = aqhiBand(r.worstAqhi);
+      return `<tr><td>${escapeHtml(r.place)}</td>
+        <td>${band ? `<span class="pill" style="padding:2px 10px"><span class="dotc" style="background:${band.colour}"></span><b>${escapeHtml(r.worstAqhi)}</b>&nbsp;${band.label}</span>` : `<span class="covnote">${t('noStation')}</span>`}</td>
+        <td>${fmt$(r.medianHouseholdIncome)}</td></tr>`;
+    }).join('')}</table>`;
+}
+
+function renderAlerts(rows) {
+  const real = rows.filter(r => r.alert != null);
+  if (!real.length) { $('p-alerts').innerHTML = `<div class="emptymsg good">${t('alertsEmptyGood')}</div>`; return; }
+  $('p-alerts').innerHTML = `<table class="jt">
+    <tr><th>${t('thAlert')}</th><th>${t('thPlace')}</th><th>${t('thMP')}</th></tr>
+    ${real.map(r => `<tr>
+      <td><b>${escapeHtml(lang === 'fr' ? (r.alertFr || r.alert) : r.alert)}</b> <span class="badge split">${escapeHtml(r.type)}</span></td>
+      <td>${escapeHtml(r.place)}</td>
+      <td>${escapeHtml(r.mp || '—')} ${r.party ? partyChip(r.party) : ''}<br><span style="color:var(--dim)">${escapeHtml(r.riding || '')}</span></td>
+    </tr>`).join('')}</table>`;
+}
+
+function renderRivers(rows) {
+  if (!rows.length) { $('p-rivers').innerHTML = `<div class="emptymsg">${t('riversEmpty')}</div>`; return; }
+  $('p-rivers').innerHTML = `<table class="jt">
+    <tr><th>${t('thPlace')}</th><th>${t('thStation')}</th><th>${t('thLevel')}</th><th>${t('thFlow')}</th></tr>
+    ${rows.map(r => `<tr><td>${escapeHtml(r.place)}</td><td>${escapeHtml(r.station)}</td>
+      <td>${r.levelMetres == null ? '—' : fmtN(r.levelMetres) + ' m'}</td>
+      <td>${r.dischargeM3s == null ? `<span class="covnote">${t('unmeasured')}</span>` : fmtN(r.dischargeM3s) + ' m³/s'}</td></tr>`).join('')}</table>`;
+}
+
+/* ── loaders ── */
+async function loadPanel(view, stateId, holderId, render) {
+  try {
+    const env = await embabel.views.invoke(view, {}, stateId ? { state: $(stateId) } : {});
+    render(rowsOf(env));
+  } catch (e) {
+    if (holderId) {
+      $(holderId).innerHTML = `<div class="errbox">${t('panelFailed')}${escapeHtml((e && e.message) || t('noDetail'))}${t('panelFailedTail')}</div>`;
+    }
+  }
+}
+
+async function loadAll() {
+  if (S.loading) return;   /* a refresh mid-load would paint stale answers over new ones */
+  S.loading = true;
+  $('refreshBtn').disabled = true;
+  $('unavailable').innerHTML = '';
+  try {
+    try {
+      const m = await embabel.manifest.ready;
+      if (m && m.ok === false) {
+        $('unavailable').innerHTML = `<div class="errbox">${t('worldMissing')}${escapeHtml((m.missing || []).map(x => x.name || x).join(', '))}${t('worldMissingTail')}</div>`;
+        return;
+      }
+    } catch (e) { /* preflight unavailable; proceed and let the calls speak */ }
+
+    $('dossier').innerHTML = `<div class="emptymsg">${t('loadingPlaces')}</div>`;
+    let dossierOk = false;
+    try {
+      /* the dossier view deliberately excludes the short-TTL alert join, so
+         this stays on warm caches; the alerts panel below owns that cost */
+      const env = await embabel.views.invoke('CaPlaceDossier', {}, {
+        state: $('main-state'), expectation: t('expectation')
+      });
+      S.dossier = rowsOf(env);
+      dossierOk = true;
+    } catch (e) {
+      $('dossier').innerHTML = `<div class="errbox">${t('dossierFailed')}${escapeHtml((e && e.message) || t('noDetail'))}.</div>`;
+    }
+    if (dossierOk) {
+      buildMap();
+      if (!S.selected || !S.dossier.some(r => r.place === S.selected)) {
+        S.selected = S.dossier.length ? S.dossier[0].place : null;
+      }
+      renderChips(); renderDots(); renderDossier();
+    }
+
+    /* the joins — independent, fired concurrently; alert counts feed back
+       into the dossier pill when AlertsAtMyMPs lands */
+    S.repsFailed = false;
+    await Promise.all([
+      loadPanel('AffordabilityGap', 'st-afford', 'p-afford', rows => { S.afford = rows; renderAfford(rows); }),
+      loadPanel('PartyLedger', 'st-ledger', 'p-ledger', rows => { S.ledger = rows; renderLedger(rows); }),
+      loadPanel('SplitRepresentation', 'st-split', 'p-split', rows => { S.split = rows; renderSplit(rows); }),
+      loadPanel('AirVsIncome', 'st-air', 'p-air', rows => { S.airVs = rows; renderAir(rows); }),
+      loadPanel('AlertsAtMyMPs', 'st-alerts', 'p-alerts', rows => {
+        S.alerts = rows; renderAlerts(rows);
+        S.alertCounts = {};
+        for (const r of rows) {
+          if (!(r.place in S.alertCounts)) S.alertCounts[r.place] = 0;
+          if (r.alert != null) S.alertCounts[r.place]++;
+        }
+      }),
+      loadPanel('RiversNearMe', 'st-rivers', 'p-rivers', rows => { S.rivers = rows; S.riversLoaded = true; renderRivers(rows); }),
+      embabel.views.invoke('AirQualityNow', {}).then(env => { S.airStations = rowsOf(env); }).catch(() => { S.airStations = []; }),
+      embabel.views.invoke('WhoRepresentsMe', {}).then(env => { S.reps = rowsOf(env); }).catch(() => { S.reps = []; S.repsFailed = true; })
+    ]);
+    if (dossierOk) renderDossier(); /* reps, rivers, stations and alert counts arrived after first paint */
+  } finally {
+    S.loading = false;
+    $('refreshBtn').disabled = false;
+  }
+}
+
+/* ── add a place — by postal code, or by NAME (NRCan geolocation) ── */
+const asObjects = (res) => (res && Array.isArray(res.objects)) ? res.objects : (Array.isArray(res) ? res : []);
+
+function placeData(base) {
+  const dd = 0.2, dw = 0.7, lon = base.lon, lat = base.lat;
+  return Object.assign({
+    latitude: lat, longitude: lon, latlon: lat + ',' + lon,
+    bbox: (lon - dd) + ',' + (lat - dd) + ',' + (lon + dd) + ',' + (lat + dd),
+    bboxWide: (lon - dw) + ',' + (lat - dw) + ',' + (lon + dw) + ',' + (lat + dw)
+  }, base.data);
+}
+
+async function addPlace() {
+  const msg = $('addMsg');
+  const label = $('addName').value.trim();
+  let raw = $('addCode').value.trim();
+  if (!raw && label) raw = label;   /* the place typed into the name box alone — accept it */
+  const code = raw.toUpperCase().replace(/\s+/g, '');
+  msg.className = 'addmsg';
+  const isPostal = /^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(code);
+  if (!isPostal && raw.length < 3) {
+    msg.className = 'addmsg err'; msg.textContent = t('badInput'); return;
+  }
+  $('addBtn').disabled = true;
+  try {
+    let data = null;
+    if (isPostal) {
+      msg.textContent = t('resolving') + code + ' …';
+      const r = await gateway.represent.representPostcode({ code });
+      const lon = r.centroid.coordinates[0], lat = r.centroid.coordinates[1];
+      const csdB = (r.boundaries_centroid || []).find(b => b.boundary_set_name === 'Census subdivision');
+      const mp = (r.representatives_centroid || []).find(x => x.elected_office === 'MP');
+      data = placeData({ lon, lat, data: {
+        name: label || (r.city ? r.city.charAt(0) + r.city.slice(1).toLowerCase() + ' ' + code : code),
+        postalCode: code, city: r.city, province: r.province,
+        riding: mp ? mp.district_name : null,
+        csd: csdB ? csdB.external_id : null,
+        dguid: csdB ? '2021A0005' + csdB.external_id : null
+      }});
+    } else {
+      msg.textContent = t('searchingName') + raw + ' …';
+      const found = await gateway.nrcanGeolocator.nrcanGeolocate({ q: raw });
+      const arr = Array.isArray(found) ? found : [];
+      const best = arr.find(m => m.qualifier === 'LOCATION' && m.geometry) || arr.find(m => m.geometry);
+      if (!best) { msg.className = 'addmsg err'; msg.textContent = t('noSuchPlace'); return; }
+      const lon = best.geometry.coordinates[0], lat = best.geometry.coordinates[1];
+      const point = lat + ',' + lon;
+      msg.textContent = t('resolving') + (best.title || raw) + ' …';
+      const [csdRes, mpRes] = await Promise.all([
+        gateway.represent.csdForPoint({ contains: point }),
+        gateway.represent.mpForPoint({ point: point })
+      ]);
+      const csdB = asObjects(csdRes)[0];
+      const mp = asObjects(mpRes)[0];
+      data = placeData({ lon, lat, data: {
+        name: label || String(best.title || raw).split(',')[0],
+        postalCode: null,
+        city: csdB ? String(csdB.name || '').toUpperCase() : null,
+        province: provinceFromTitle(best.title),
+        riding: mp ? mp.district_name : null,
+        csd: csdB ? csdB.external_id : null,
+        dguid: csdB ? '2021A0005' + csdB.external_id : null
+      }});
+    }
+    await gateway.repository.createEntry({ type: 'CaPlace', data: data });
+    msg.textContent = (data.name || code) + t('watching');
+    $('addName').value = ''; $('addCode').value = '';
+    await loadAll();
+    msg.textContent = '';
+  } catch (e) {
+    msg.className = 'addmsg err';
+    msg.textContent = /404/.test(String(e && e.message)) ?
+      t('noSuchPostal') : t('addFailed') + ((e && e.message) || t('noDetail'));
+  } finally {
+    $('addBtn').disabled = false;
+  }
+}
+
+$('addBtn').addEventListener('click', addPlace);
+$('addCode').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') addPlace(); });
+$('refreshBtn').addEventListener('click', () => loadAll());
+$('langBtn').addEventListener('click', () => setLang(lang === 'fr' ? 'en' : 'fr'));
+
+applyChrome();
+buildMap();
+loadAll();
+</script>
+</body>
+</html>
