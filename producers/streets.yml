@@ -216,7 +216,7 @@
   kind: remote
   operation: lfsVectorRange
   # WDS throttles bursts (HTTP 430) — pace politely.
-  cost: { rate: "2/second" }
+  cost: { rate: "1/second" }
   records: "$[*].object.vectorDataPoint[*]"
   keyArg: vectorIds
   echoKeyAs: key
@@ -242,7 +242,7 @@
   kind: remote
   operation: lfsVectorRange
   # WDS throttles bursts (HTTP 430) — pace politely.
-  cost: { rate: "2/second" }
+  cost: { rate: "1/second" }
   records: "$[*].object.vectorDataPoint[*]"
   keyArg: vectorIds
   echoKeyAs: key
@@ -260,7 +260,7 @@
   kind: remote
   operation: lfsVectorRange
   # WDS throttles bursts (HTTP 430) — pace politely.
-  cost: { rate: "2/second" }
+  cost: { rate: "1/second" }
   records: "$[*].object.vectorDataPoint[*]"
   keyArg: vectorIds
   echoKeyAs: key
@@ -278,7 +278,7 @@
   kind: remote
   operation: lfsVectorRange
   # WDS throttles bursts (HTTP 430) — pace politely.
-  cost: { rate: "2/second" }
+  cost: { rate: "1/second" }
   records: "$[*].object.vectorDataPoint[*]"
   keyArg: vectorIds
   echoKeyAs: key
@@ -296,7 +296,7 @@
   kind: remote
   operation: lfsVectorRange
   # WDS throttles bursts (HTTP 430) — pace politely.
-  cost: { rate: "2/second" }
+  cost: { rate: "1/second" }
   records: "$[*].object.vectorDataPoint[*]"
   keyArg: vectorIds
   echoKeyAs: key

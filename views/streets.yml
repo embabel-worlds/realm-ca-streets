@@ -287,12 +287,14 @@
       default: 10
       description: "Maximum parties."
   cypher: |
-    MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+    MATCH (p:CaPlace)
     OPTIONAL MATCH (p)-[:HAS_CRIME_SEVERITY]->(c0:CaCrimeSeverity)
-    WITH p, s, c0 ORDER BY c0.year DESC
-    WITH p, s, collect(c0)[0] AS c
+    WITH p, c0 ORDER BY c0.year DESC
+    WITH p, collect(c0)[0] AS c
+    OPTIONAL MATCH (p)-[:HAS_SEAT]->(s0:CaSeat)
+    WITH p, c, collect(s0)[0] AS s
     WITH s.party AS party, toFloat(c.csi) AS csi
-    WHERE csi IS NOT NULL
+    WHERE csi IS NOT NULL AND party IS NOT NULL
     RETURN party, count(*) AS places, round(avg(csi) * 10) / 10.0 AS avgCrimeSeverityIndex,
            round(min(csi) * 10) / 10.0 AS lowest, round(max(csi) * 10) / 10.0 AS highest
     ORDER BY avgCrimeSeverityIndex DESC LIMIT $limit
