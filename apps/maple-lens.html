@@ -932,6 +932,14 @@ function renderHousing(rows) {
 }
 
 /* ── loaders ── */
+/* apps-runtime v1 never completes a state element passed to a direct
+   views.invoke (embabel/me#1162) — the strip says "Working…" forever over
+   rendered data. Complete it ourselves. */
+function settleState(stateId) {
+  const el = stateId && $(stateId);
+  if (el && typeof el.setState === 'function') el.setState('ready');
+  else if (el) el.hidden = true;
+}
 async function loadPanel(view, stateId, holderId, render) {
   try {
     const env = await embabel.views.invoke(view, {}, stateId ? { state: $(stateId) } : {});
@@ -940,6 +948,8 @@ async function loadPanel(view, stateId, holderId, render) {
     if (holderId) {
       $(holderId).innerHTML = `<div class="errbox">${t('panelFailed')}${escapeHtml((e && e.message) || t('noDetail'))}${t('panelFailedTail')}</div>`;
     }
+  } finally {
+    settleState(stateId);
   }
 }
 
@@ -969,6 +979,8 @@ async function loadAll() {
       dossierOk = true;
     } catch (e) {
       $('dossier').innerHTML = `<div class="errbox">${t('dossierFailed')}${escapeHtml((e && e.message) || t('noDetail'))}.</div>`;
+    } finally {
+      settleState('main-state');
     }
     if (dossierOk) {
       buildMap();
