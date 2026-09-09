@@ -353,6 +353,61 @@
            toFloat(g.centsPerLitre) AS centsPerLitre, g.month AS month
     ORDER BY centsPerLitre ASC LIMIT $limit
 
+- name: BoomtownLedger
+  description: The growth-versus-supply ledger per watched CMA — people ADDED (July-1 population estimates, 2021 to latest) against housing UNITS STARTED over the same window (CMHC), as a people-per-new-home ratio, beside the New Housing Price Index year-over-year and the sitting MP's party. Above ~2.5 people per unit (the average household), building is falling behind growth. The ratio is computed here; every input is the publisher's own figure.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum areas."
+  cypher: |
+    MATCH (p:CaPlace)
+    WHERE p.popVector IS NOT NULL AND p.startsVector IS NOT NULL
+    OPTIONAL MATCH (p)-[:HAS_POP_NOW]->(n:CaPopulationNow)
+    WITH p, n ORDER BY n.year
+    WITH p, collect(n) AS pops
+    WITH p, toFloat(pops[0].population) AS popStart, toFloat(pops[-1].population) AS popEnd,
+         pops[0].year AS fromYear, pops[-1].year AS toYear
+    OPTIONAL MATCH (p)-[:HAS_HOUSING_STARTS]->(h:CaHousingStart)
+    WHERE h.month >= '2021-07-01'
+    WITH p, popStart, popEnd, fromYear, toYear, sum(toFloat(h.starts)) AS unitsStarted
+    OPTIONAL MATCH (p)-[:HAS_NHPI]->(x:CaHousingPriceIndex)
+    WITH p, popStart, popEnd, fromYear, toYear, unitsStarted, x ORDER BY x.month DESC
+    WITH p, popStart, popEnd, fromYear, toYear, unitsStarted, collect(x) AS nh
+    OPTIONAL MATCH (p)-[:HAS_SEAT]->(s0:CaSeat)
+    WITH p, popStart, popEnd, fromYear, toYear, unitsStarted, nh, collect(s0)[0] AS s
+    WITH DISTINCT p.startsArea AS area, popStart, popEnd, fromYear, toYear, unitsStarted,
+         toFloat(nh[0].index) AS nhpiLatest,
+         CASE WHEN size(nh) > 12 AND toFloat(nh[12].index) > 0
+              THEN round((toFloat(nh[0].index) / toFloat(nh[12].index) - 1) * 1000) / 10.0 END AS nhpiYoyPct,
+         s.mp AS mp, s.party AS party
+    WHERE popStart IS NOT NULL AND unitsStarted > 0
+    RETURN area, round(popEnd - popStart) AS peopleAdded,
+           round((popEnd / popStart - 1) * 1000) / 10.0 AS growthPct,
+           round(unitsStarted) AS unitsStarted,
+           round((popEnd - popStart) / unitsStarted * 100) / 100.0 AS peoplePerNewHome,
+           nhpiYoyPct, mp, party
+    ORDER BY peoplePerNewHome DESC LIMIT $limit
+
+- name: WhoGotSafer
+  description: Each watched CMA's police-reported Crime Severity Index at the start and end of the stored series (2018 to latest year) with the percent change — who actually got safer, on the publisher's own nationally comparable index (Canada 2006 = 100). A change in POLICE-REPORTED severity, which reflects reporting and enforcement as well as crime; say so.
+  params:
+    limit:
+      type: int
+      default: 20
+      description: "Maximum areas."
+  cypher: |
+    MATCH (p:CaPlace)-[:HAS_CRIME_SEVERITY]->(c:CaCrimeSeverity)
+    WITH DISTINCT p.csiArea AS area, c.year AS year, toFloat(c.csi) AS csi
+    ORDER BY area, year
+    WITH area, collect({year: year, csi: csi}) AS series
+    WITH area, series[0] AS first, series[-1] AS last
+    WHERE first.csi > 0
+    RETURN area, first.year AS fromYear, first.csi AS csiThen,
+           last.year AS toYear, last.csi AS csiNow,
+           round((last.csi / first.csi - 1) * 1000) / 10.0 AS changePct
+    ORDER BY changePct ASC LIMIT $limit
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada

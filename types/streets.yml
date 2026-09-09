@@ -73,6 +73,12 @@
     gasArea:
       type: string
       description: "The geography the gas vector describes."
+    startsVector:
+      type: string
+      description: "WDS vector id for the place's monthly housing STARTS, total units (CMHC table 34-10-0154, CMA level) — the HAS_HOUSING_STARTS key."
+    startsArea:
+      type: string
+      description: "The geography the starts vector describes."
     popVector:
       type: string
       description: "WDS vector id for the place's July-1 population estimate (table 17-10-0148, CMA/CA level) — the HAS_POP_NOW key."
@@ -399,3 +405,20 @@
     population:
       type: number
       description: "Estimated persons, whole CMA/CA."
+
+- name: CaHousingStart
+  description: "One MONTH's housing starts (total units, all dwelling types) for the watched place's census metropolitan area — CMHC via StatCan table 34-10-0154. Raw unadjusted counts, so sum 12 months for an annual pace before comparing places or years. Reached via HAS_HOUSING_STARTS; series since mid-2021 to pair with the population-estimate growth window."
+  virtualJoins:
+    - anchorLabel: CaPlace
+      relationship: HAS_HOUSING_STARTS
+      keyField: startsVector
+      recordKeyField: key
+      producer: caHousingStarts
+      maxAnchors: 15
+      description: "Monthly starts for the CMA — aggregate to yearly for growth-vs-supply questions."
+  properties:
+    key: "The WDS vector id — the join link."
+    month: "The month, YYYY-MM-01."
+    starts:
+      type: number
+      description: "Housing starts that month, total units, whole CMA."

@@ -308,3 +308,22 @@
     year: refPer
     population: value
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
+
+# Housing STARTS by CMA — CMHC via StatCan 34-10-0154, monthly, total units,
+# seasonally UNadjusted raw counts. The supply half of "is building keeping
+# up with growth"; sum 12 months for an annual pace before comparing.
+- name: caHousingStarts
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object.vectorDataPoint[*]"
+  keyArg: vectorIds
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    startRefPeriod: "2021-07-01"
+    endReferencePeriod: "2035-12-01"
+  project:
+    month: refPer
+    starts: value
+  cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
