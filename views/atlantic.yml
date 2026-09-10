@@ -79,3 +79,19 @@
     RETURN r.country AS country, r.place AS place, r.pct AS pct, r.metric AS metric,
            r.n AS n, r.period AS period
     ORDER BY r.country
+
+- name: WhereCrimeConcentrates
+  description: How few streets carry half of each watched UK place's crime — the Pareto measurement of crime concentration, from data.police.uk street-level incidents (latest month, within one mile). A small pctOfStreets means crime is a places problem, not a people problem — enforcement can stand on twenty corners. This measurement is structurally IMPOSSIBLE in Canada — no national street-level crime register exists (the realm's Deliberately-not-here list) — which is itself the Atlantic finding — Britain can see crime concentration and Canada cannot. Street names are anonymised localities, and a mile circle in a dense city returns more streets than a town — compare the percentage, not the counts.
+  cypher: |
+    MATCH (p:UkPlace)-[:HAS_CRIME]->(ci:CrimeIncident)
+    WITH p.name AS place, ci.street AS street, count(*) AS c ORDER BY c DESC
+    WITH place, collect(c) AS counts, sum(c) AS total
+    WITH place, counts, total,
+         reduce(acc={cum:0, streets:0, done:false}, c IN counts |
+           CASE WHEN acc.done THEN acc
+                WHEN acc.cum + c >= total/2 THEN {cum:acc.cum+c, streets:acc.streets+1, done:true}
+                ELSE {cum:acc.cum+c, streets:acc.streets+1, done:false} END) AS half
+    RETURN place, total AS crimes, size(counts) AS distinctStreets,
+           half.streets AS streetsCarryingHalf,
+           round(1000.0*half.streets/size(counts))/10.0 AS pctOfStreets
+    ORDER BY pctOfStreets ASC
