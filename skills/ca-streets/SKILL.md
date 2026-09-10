@@ -62,6 +62,16 @@ the morning briefing) · `CensusLeague` (every census measure, one table) ·
 `WhoRepresentsMe` · `SeatsAtMyPlaces` · `AirQualityNow` · `RiversNearMe` ·
 `WeatherAcrossMyPlaces`. Run via `gateway.view.run({ name, params })`.
 
+**Across the Atlantic** — when realm-uk-streets is installed alongside, three
+views join the two countries in ONE query (all label spaces are global):
+`AtlanticAffordability` (years of local income per home, every watched place
+in both countries) · `AtlanticCrimeGeography` (which country's crime map is
+more unequal — dimensionless spread from both national anchors, no watched
+places needed) · `AtlanticImpunity` (share of crime with nobody held to
+account, UK street outcomes beside Canadian weighted clearance). Every
+cross-country number is dimensionless and each row's `basis`/`metric` column
+names its own register — quote them with it, never as one league table.
+
 ## Watching a place
 
 Resolve geography FIRST, store it all — the keys are the realm. By postal code:

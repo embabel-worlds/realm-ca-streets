@@ -1,0 +1,81 @@
+# ── Cross-realm views — Canada beside the United Kingdom ─────────────────────
+# These views traverse TWO realms' doors in one scoped-Cypher statement. That
+# works because every installed realm shares one graph and one global label
+# space (the same fact that makes view names and operationIds collide). They
+# REQUIRE realm-uk-streets to be installed alongside ca-streets; with it absent
+# the UK half returns no rows and the view degrades to Canada-only.
+#
+# The comparison discipline — every cross-country number here is DIMENSIONLESS
+# (a ratio, a percentage, a coefficient of variation). Never raw CAD beside
+# GBP. And each side names its own measurement basis in a `basis`/`metric`
+# column, because the registers are cousins, not twins — UK pay is individual
+# full-time, Canadian income is household; a UK price is an average sale, a
+# Canadian dwelling value is owner-estimated.
+#
+# Scoped Cypher forbids UNION. The sanctioned shape for a two-country result is
+# collect each half, concatenate, UNWIND — and the concatenation MUST be two
+# steps (`WITH ukRows, collect(...) AS caRows` then `WITH ukRows + caRows`),
+# never `WITH ukRows + collect(...)`, which is illegal implicit grouping
+# (embabel/me#1166, #1167).
+
+- name: AtlanticAffordability
+  description: How many years of local income buys a home, at every watched place in BOTH countries — Canadian census dwelling value over household income beside UK average sale price over median full-time pay, one dimensionless ladder. The basis column names each side's registers — the UK figure divides by an individual's pay, the Canadian by a household's, so a UK place carries a structural handicap of roughly the second-earner — read gaps of a year or two as noise, gaps of five as geography.
+  cypher: |
+    MATCH (p:UkPlace)-[:HAS_HOUSE_PRICES]->(h:HousePriceMonth) WHERE p.districtSlug = h.key
+    WITH p, h ORDER BY h.month DESC
+    WITH p, collect(h)[0] AS latest
+    MATCH (p)-[:HAS_INCOME]->(i:AreaIncome)
+    WITH collect({country:'UK', place:p.name, home:toFloat(latest.averagePrice), income:toFloat(i.annualPay), period:latest.month, basis:'avg sale price (HM Land Registry HPI) vs median FT individual pay (ONS ASHE)'}) AS ukRows
+    MATCH (c:CaPlace)-[:HAS_DWELLING_VALUE]->(d:CaDwellingValue)
+    MATCH (c)-[:HAS_HOUSEHOLD_INCOME]->(inc:CaHouseholdIncome)
+    WITH ukRows, collect({country:'CA', place:c.name, home:toFloat(d.value), income:toFloat(inc.value), period:'Census 2021', basis:'owner-estimated dwelling value vs median household income (Census 2021)'}) AS caRows
+    WITH ukRows + caRows AS allRows
+    UNWIND allRows AS r
+    RETURN r.country AS country, r.place AS place,
+           round(10.0 * r.home / r.income) / 10.0 AS yearsOfIncome,
+           r.home AS home, r.income AS income, r.period AS period, r.basis AS basis
+    ORDER BY yearsOfIncome DESC
+
+- name: AtlanticCrimeGeography
+  description: Is crime more geographically unequal across Britain or across Canada — every England-and-Wales district's total crime rate (ONS Community Safety Partnership table, ~300 districts) and every Canadian CMA's Crime Severity Index (StatCan, 41 CMAs) reduced to each country's dimensionless spread — count, mean, coefficient of variation, extremes. Needs NO watched places — both sides ride literal-seeded national anchors. The metrics differ (a per-1,000 rate vs a severity index) so ONLY the dimensionless columns compare — never the means. UK granularity is finer (301 areas vs 41), which mechanically widens spread — say so when quoting. City of London is excluded (its suppressed cell reads as a false near-zero); the UK maximum that remains is Westminster, whose rate is inflated by daytime population — crimes counted where they happen, residents where they live — so quote the CV, not the max-over-min, as the headline spread.
+  cypher: |
+    MATCH (s:CaCmaSet {set:'canada'})-[:LISTS_CSI_NOW]->(k:CaCmaCsiNow)
+    WITH collect(toFloat(k.csi)) AS ca
+    MATCH (u:UkDistricts {set:'england-and-wales'})-[:LISTS_CRIME]->(dc:DistrictCrime)
+    WHERE dc.districtCode =~ '^[EW]0.*' AND dc.districtCode <> 'E09000001'
+      AND toFloat(dc.totalRate) IS NOT NULL
+    WITH ca, collect(toFloat(dc.totalRate)) AS uk
+    WITH [v IN uk | {series:'UK districts — total crime rate per 1,000, YE Mar 2024 (City of London excluded)', v:v}]
+       + [v IN ca | {series:'Canada CMAs — Crime Severity Index, 2025', v:v}] AS rows
+    UNWIND rows AS r
+    WITH r.series AS series, r.v AS v
+    WITH series, count(v) AS n, avg(v) AS mean,
+         sqrt(avg(v*v) - avg(v)*avg(v)) AS sd, max(v) AS hi, min(v) AS lo
+    RETURN series, n, round(mean*10)/10.0 AS mean,
+           round(1000*sd/mean)/10.0 AS spreadCvPct,
+           round(hi*10)/10.0 AS highest, round(lo*10)/10.0 AS lowest,
+           round(10.0*hi/lo)/10.0 AS maxOverMin
+    ORDER BY spreadCvPct DESC
+
+- name: AtlanticImpunity
+  description: The share of reported crime where nobody is held to account, on both sides of the Atlantic — each watched UK place's latest-month street crimes already closed with no suspect identified (data.police.uk outcomes, within one mile), beside the share of Canadian crime NOT cleared in 2025 (100 minus the severity-weighted clearance rate, all 41 CMAs averaged). The registers measure differently — the UK figure is one month of street incidents and EXCLUDES cases still under investigation, the Canadian figure is a full-year weighted national mean — so quote each with its metric column, never as one league table. The Canadian mean of roughly 62 percent unsolved is the national context TheImpunityIndex ranks CMA by CMA.
+  cypher: |
+    MATCH (p:UkPlace)-[:HAS_CRIME]->(ci:CrimeIncident)
+    WITH p.name AS place, count(ci) AS n,
+         sum(CASE WHEN ci.outcome CONTAINS 'no suspect identified' THEN 1 ELSE 0 END) AS noSusp,
+         sum(CASE WHEN ci.outcome IS NULL THEN 1 ELSE 0 END) AS openCases,
+         collect(DISTINCT ci.month)[0] AS period
+    WITH collect({country:'UK', place:place, pct: round(1000.0*noSusp/n)/10.0,
+                  metric:'share of latest-month street crimes ALREADY closed, no suspect identified — open investigations excluded',
+                  n:n, period:period}) AS ukRows
+    MATCH (s:CaCmaSet {set:'canada'})-[:LISTS_CLEAR_NOW]->(k:CaCmaClearNow)
+    WITH ukRows, collect(toFloat(k.value)) AS clr
+    WITH ukRows, [{country:'CA', place:'All 41 CMAs, mean',
+                   pct: round(10.0*(100.0 - reduce(t=0.0, v IN clr | t+v)/size(clr)))/10.0,
+                   metric:'share of 2025 crime NOT cleared, severity-weighted (StatCan 35-10-0026)',
+                   n:size(clr), period:'2025'}] AS caRows
+    WITH ukRows + caRows AS rows
+    UNWIND rows AS r
+    RETURN r.country AS country, r.place AS place, r.pct AS pct, r.metric AS metric,
+           r.n AS n, r.period AS period
+    ORDER BY r.country
