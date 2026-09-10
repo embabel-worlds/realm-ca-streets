@@ -369,3 +369,41 @@
     csi: vectorDataPoint.0.value
     year: vectorDataPoint.0.refPer
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
+
+# National July-1 population estimates, every CMA in one call per year —
+# FIXED-year windows so the indexed point (.0) is deterministic. WDS is slow
+# per vector on multi-vector reads (~3s each); ~41 vectors fits the engine's
+# window, the 152-geo CMA+CA set does not.
+- name: natPopBase
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1589858712,1589863197,1589866302,1589866647,1589866992,1589871822,1589873202,1589874582,1589875617,1589876307,1589878032,1589884587,1589884932,1589885967,1589887002,1589887692,1589888037,1589888382,1589888727,1589889072,1589890452,1589891142,1589891832,1589893902,1589895282,1589896662,1589898732,1589902182,1589903562,1589907702,1589908737,1589909772,1589911152,1589915637,1589916672,1589917017,1589917362,1589917707,1589918397,1589919432,1589930472"
+    startRefPeriod: "2021-01-01"
+    endReferencePeriod: "2021-12-31"
+  project:
+    vector: vectorId
+    population: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natPopNow
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1589858712,1589863197,1589866302,1589866647,1589866992,1589871822,1589873202,1589874582,1589875617,1589876307,1589878032,1589884587,1589884932,1589885967,1589887002,1589887692,1589888037,1589888382,1589888727,1589889072,1589890452,1589891142,1589891832,1589893902,1589895282,1589896662,1589898732,1589902182,1589903562,1589907702,1589908737,1589909772,1589911152,1589915637,1589916672,1589917017,1589917362,1589917707,1589918397,1589919432,1589930472"
+    startRefPeriod: "2025-01-01"
+    endReferencePeriod: "2025-12-31"
+  project:
+    vector: vectorId
+    population: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }

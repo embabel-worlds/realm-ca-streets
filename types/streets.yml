@@ -466,3 +466,37 @@
       type: number
       description: "Crime Severity Index, 2018."
     year: "The reference year."
+
+- name: CaCmaPop2021
+  description: "One CMA's July-1 2021 population estimate from the national one-call fetch. Reached via MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_POP_2021]->(x); rows carry the WDS vectorId, mapped to names in the national views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_POP_2021
+      keyField: set
+      recordKeyField: key
+      producer: natPopBase
+      maxAnchors: 1
+      description: "Every CMA's 2021 estimate in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    population:
+      type: number
+      description: "Estimated persons, July 1 2021, whole CMA."
+
+- name: CaCmaPop2025
+  description: "One CMA's July-1 2025 population estimate from the national one-call fetch. Reached via LISTS_POP_2025 from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_POP_2025
+      keyField: set
+      recordKeyField: key
+      producer: natPopNow
+      maxAnchors: 1
+      description: "Every CMA's 2025 estimate in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — join on it against CaCmaPop2021."
+    population:
+      type: number
+      description: "Estimated persons, July 1 2025, whole CMA."

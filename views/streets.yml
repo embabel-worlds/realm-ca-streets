@@ -511,6 +511,74 @@
     ORDER BY (CASE WHEN zNow < 0 THEN -zNow ELSE zNow END) + (CASE WHEN zChange < 0 THEN -zChange ELSE zChange END) DESC
     LIMIT $limit
 
+- name: CanadaGrowthOutliers
+  description: EVERY Canadian census metropolitan area's population growth, July 2021 to July 2025 (StatCan estimates, whole CMA), with each CMA's distance from the national mean growth in standard deviations computed in-view — flagged OUTLIER beyond 1.5 sigma either way. Needs no watched places; two cached one-call national fetches off the literal-seeded anchor.
+  params:
+    limit:
+      type: int
+      default: 45
+      description: "Maximum CMAs."
+  cypher: |
+    MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_POP_2021]->(a:CaCmaPop2021)
+    MATCH (u)-[:LISTS_POP_2025]->(b:CaCmaPop2025)
+    WHERE b.vector = a.vector
+    WITH a.vector AS vector, toFloat(a.population) AS pop21, toFloat(b.population) AS pop25
+    WHERE pop21 > 0 AND pop25 IS NOT NULL
+    WITH collect({vector: vector, pop21: pop21, pop25: pop25, growth: (pop25 / pop21 - 1) * 100}) AS rows
+    UNWIND rows AS r0
+    WITH rows, avg(r0.growth) AS meanG, sqrt(avg(r0.growth * r0.growth) - avg(r0.growth) * avg(r0.growth)) AS sdG
+    UNWIND rows AS r
+    WITH r, meanG, sdG, (r.growth - meanG) / sdG AS z
+    RETURN CASE r.vector
+             WHEN '1589917362' THEN 'Abbotsford - Mission, British Columbia'
+             WHEN '1589893902' THEN 'Barrie, Ontario'
+             WHEN '1589884932' THEN 'Belleville - Quinte West, Ontario'
+             WHEN '1589889072' THEN 'Brantford, Ontario'
+             WHEN '1589908737' THEN 'Calgary, Alberta'
+             WHEN '1589917017' THEN 'Chilliwack, British Columbia'
+             WHEN '1589876307' THEN 'Drummondville, Quebec'
+             WHEN '1589911152' THEN 'Edmonton, Alberta'
+             WHEN '1589866992' THEN 'Fredericton, New Brunswick'
+             WHEN '1589895282' THEN 'Greater Sudbury, Ontario'
+             WHEN '1589890452' THEN 'Guelph, Ontario'
+             WHEN '1589863197' THEN 'Halifax, Nova Scotia'
+             WHEN '1589888037' THEN 'Hamilton, Ontario'
+             WHEN '1589916672' THEN 'Kamloops, British Columbia'
+             WHEN '1589915637' THEN 'Kelowna, British Columbia'
+             WHEN '1589884587' THEN 'Kingston, Ontario'
+             WHEN '1589888727' THEN 'Kitchener - Cambridge - Waterloo, Ontario'
+             WHEN '1589907702' THEN 'Lethbridge, Alberta'
+             WHEN '1589891142' THEN 'London, Ontario'
+             WHEN '1589866302' THEN 'Moncton, New Brunswick'
+             WHEN '1589878032' THEN 'Montréal, Quebec'
+             WHEN '1589919432' THEN 'Nanaimo, British Columbia'
+             WHEN '1589887002' THEN 'Oshawa, Ontario'
+             WHEN '1589930472' THEN 'Ottawa - Gatineau, Ontario/Quebec'
+             WHEN '1589885967' THEN 'Peterborough, Ontario'
+             WHEN '1589873202' THEN 'Québec, Quebec'
+             WHEN '1589909772' THEN 'Red Deer, Alberta'
+             WHEN '1589902182' THEN 'Regina, Saskatchewan'
+             WHEN '1589871822' THEN 'Saguenay, Quebec'
+             WHEN '1589866647' THEN 'Saint John, New Brunswick'
+             WHEN '1589903562' THEN 'Saskatoon, Saskatchewan'
+             WHEN '1589874582' THEN 'Sherbrooke, Quebec'
+             WHEN '1589888382' THEN 'St. Catharines - Niagara, Ontario'
+             WHEN '1589858712' THEN 'St. John\'s, Newfoundland and Labrador'
+             WHEN '1589896662' THEN 'Thunder Bay, Ontario'
+             WHEN '1589887692' THEN 'Toronto, Ontario'
+             WHEN '1589875617' THEN 'Trois-Rivières, Quebec'
+             WHEN '1589917707' THEN 'Vancouver, British Columbia'
+             WHEN '1589918397' THEN 'Victoria, British Columbia'
+             WHEN '1589891832' THEN 'Windsor, Ontario'
+             WHEN '1589898732' THEN 'Winnipeg, Manitoba'
+             ELSE r.vector END AS cma,
+           round(r.pop21) AS pop2021, round(r.pop25) AS pop2025,
+           round(r.growth * 10) / 10.0 AS growthPct,
+           round(meanG * 10) / 10.0 AS nationalMeanGrowthPct,
+           round(z * 100) / 100.0 AS sigmasFromMean,
+           CASE WHEN z > 1.5 OR z < -1.5 THEN 'OUTLIER' ELSE '' END AS flag
+    ORDER BY r.growth DESC LIMIT $limit
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada
