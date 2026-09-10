@@ -1256,6 +1256,71 @@
            round((vclr25 - vclr18) * 10) / 10.0 AS violentClearanceChangePts
     ORDER BY violentClearanceChangePts ASC LIMIT $limit
 
+- name: WhereViolenceGoesUnsolved
+  description: The provincial map of violent impunity — every province's average VIOLENT weighted clearance rate across its CMAs, 2018 beside 2025 with the change in points and the worst-moving CMA named. Born from the ViolentImpunityCheck fact-check, which found the four steepest violent-clearance collapses in the country include every British Columbia CMA (Kelowna nearly halved, 59.8 to 28.7). Small provinces average few CMAs — the n column says how few; a one-CMA province IS that city.
+  cypher: |
+    MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_VIOLCLEAR_THEN]->(vt:CaCmaViolClearThen)
+    MATCH (u)-[:LISTS_VIOLCLEAR_NOW]->(vn:CaCmaViolClearNow) WHERE vn.vector = vt.vector
+    WITH CASE vt.vector
+               WHEN '53079758' THEN 'Abbotsford-Mission, British Columbia'
+               WHEN '53079851' THEN 'Barrie, Ontario'
+               WHEN '1064948751' THEN 'Belleville-Quinte West, Ontario'
+               WHEN '53079833' THEN 'Brantford, Ontario'
+               WHEN '53079710' THEN 'Calgary, Alberta'
+               WHEN '1593151934' THEN 'Chilliwack, British Columbia'
+               WHEN '1593151880' THEN 'Drummondville, Quebec'
+               WHEN '53079719' THEN 'Edmonton, Alberta'
+               WHEN '1593151862' THEN 'Fredericton, New Brunswick'
+               WHEN '53079611' THEN 'Greater Sudbury, Ontario'
+               WHEN '53079842' THEN 'Guelph, Ontario'
+               WHEN '53079881' THEN 'Halifax, Nova Scotia'
+               WHEN '53079566' THEN 'Hamilton, Ontario'
+               WHEN '1593151916' THEN 'Kamloops, British Columbia'
+               WHEN '53079860' THEN 'Kelowna, British Columbia'
+               WHEN '53079629' THEN 'Kingston, Ontario'
+               WHEN '53079584' THEN 'Kitchener-Cambridge-Waterloo, Ontario'
+               WHEN '1064948769' THEN 'Lethbridge, Alberta'
+               WHEN '53079593' THEN 'London, Ontario'
+               WHEN '53079815' THEN 'Moncton, New Brunswick'
+               WHEN '53079497' THEN 'Montréal, Quebec'
+               WHEN '1593151952' THEN 'Nanaimo, British Columbia'
+               WHEN '53079536' THEN 'Ottawa-Gatineau, Ontario'
+               WHEN '53079506' THEN 'Ottawa-Gatineau, Quebec'
+               WHEN '53079824' THEN 'Peterborough, Ontario'
+               WHEN '53079470' THEN 'Québec, Quebec'
+               WHEN '1593151898' THEN 'Red Deer, Alberta'
+               WHEN '53079680' THEN 'Regina, Saskatchewan'
+               WHEN '53079461' THEN 'Saguenay, Quebec'
+               WHEN '53079902' THEN 'Saint John, New Brunswick'
+               WHEN '53079689' THEN 'Saskatoon, Saskatchewan'
+               WHEN '53079479' THEN 'Sherbrooke, Quebec'
+               WHEN '53079659' THEN 'St. John\'s, Newfoundland and Labrador'
+               WHEN '53079575' THEN 'St.Catharines-Niagara, Ontario'
+               WHEN '53079620' THEN 'Thunder Bay, Ontario'
+               WHEN '53079545' THEN 'Toronto, Ontario'
+               WHEN '53079488' THEN 'Trois-Rivières, Quebec'
+               WHEN '53079740' THEN 'Vancouver, British Columbia'
+               WHEN '53079749' THEN 'Victoria, British Columbia'
+               WHEN '53079602' THEN 'Windsor, Ontario'
+               WHEN '53079650' THEN 'Winnipeg, Manitoba'
+               ELSE vt.vector END AS cma,
+         toFloat(vt.value) AS vclr18, toFloat(vn.value) AS vclr25
+    WHERE vclr18 > 0
+    WITH cma, split(cma, ', ') AS parts, vclr18, vclr25, vclr25 - vclr18 AS chg
+    WITH parts[size(parts)-1] AS province, cma, vclr18, vclr25, chg
+    WITH province, count(*) AS n, avg(vclr18) AS a18, avg(vclr25) AS a25,
+         avg(chg) AS achg, min(chg) AS worstChg,
+         collect({cma:cma, chg:chg}) AS rows
+    WITH province, n, a18, a25, achg, worstChg,
+         head([r IN rows WHERE r.chg = worstChg]) AS worst
+    RETURN province, n,
+           round(a18*10)/10.0 AS avgViolentClearance2018,
+           round(a25*10)/10.0 AS avgViolentClearance2025,
+           round(achg*10)/10.0 AS avgChangePts,
+           split(worst.cma, ', ')[0] AS worstCma,
+           round(worst.chg*10)/10.0 AS worstCmaChangePts
+    ORDER BY avgChangePts ASC
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada
