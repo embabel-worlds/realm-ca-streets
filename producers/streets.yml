@@ -512,3 +512,37 @@
     vector: vectorId
     value: vectorDataPoint.0.value
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natViolClearNow
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "53079461,53079470,53079479,53079488,53079497,53079506,53079536,53079545,53079566,53079575,53079584,53079593,53079602,53079611,53079620,53079629,53079650,53079659,53079680,53079689,53079710,53079719,53079740,53079749,53079758,53079815,53079824,53079833,53079842,53079851,53079860,53079881,53079902,1064948751,1064948769,1593151862,1593151880,1593151898,1593151916,1593151934,1593151952"
+    startRefPeriod: "2025-01-01"
+    endReferencePeriod: "2025-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natViolClearThen
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "53079461,53079470,53079479,53079488,53079497,53079506,53079536,53079545,53079566,53079575,53079584,53079593,53079602,53079611,53079620,53079629,53079650,53079659,53079680,53079689,53079710,53079719,53079740,53079749,53079758,53079815,53079824,53079833,53079842,53079851,53079860,53079881,53079902,1064948751,1064948769,1593151862,1593151880,1593151898,1593151916,1593151934,1593151952"
+    startRefPeriod: "2018-01-01"
+    endReferencePeriod: "2018-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }

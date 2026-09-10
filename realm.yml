@@ -58,3 +58,5 @@ exports:
   - CaCmaClearNow
   - CaCmaClearThen
   - CaCmaYouthNow
+  - CaCmaViolClearNow
+  - CaCmaViolClearThen
