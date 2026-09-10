@@ -579,6 +579,70 @@
            CASE WHEN z > 1.5 OR z < -1.5 THEN 'OUTLIER' ELSE '' END AS flag
     ORDER BY r.growth DESC LIMIT $limit
 
+- name: CanadaCrimeMomentum
+  description: The momentum test, every CMA — Crime Severity Index change 2018 to 2021 beside change 2021 to 2025, on StatCan's nationally comparable index. If the two track, crime trends PERSIST and any claimed predictor must beat simple momentum; where they diverge, something changed mid-period and that CMA is the story. Exploratory association over ~35 areas, police-reported severity.
+  params:
+    limit:
+      type: int
+      default: 45
+      description: "Maximum CMAs."
+  cypher: |
+    MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_THEN]->(o:CaCmaCsiThen)
+    MATCH (u)-[:LISTS_CSI_MID]->(m:CaCmaCsiMid)
+    WHERE m.vector = o.vector
+    MATCH (u)-[:LISTS_CSI_NOW]->(n:CaCmaCsiNow)
+    WHERE n.vector = o.vector
+    WITH o.vector AS vector, toFloat(o.csi) AS c18, toFloat(m.csi) AS c21, toFloat(n.csi) AS c25
+    WHERE c18 > 0 AND c21 > 0 AND c25 IS NOT NULL
+    RETURN CASE vector
+             WHEN '44312689' THEN 'Abbotsford-Mission, British Columbia'
+             WHEN '52117770' THEN 'Barrie, Ontario'
+             WHEN '1064948737' THEN 'Belleville-Quinte West, Ontario'
+             WHEN '52117758' THEN 'Brantford, Ontario'
+             WHEN '44312659' THEN 'Calgary, Alberta'
+             WHEN '1593151928' THEN 'Chilliwack, British Columbia'
+             WHEN '1593151874' THEN 'Drummondville, Quebec'
+             WHEN '44312665' THEN 'Edmonton, Alberta'
+             WHEN '1593151856' THEN 'Fredericton, New Brunswick'
+             WHEN '44312605' THEN 'Greater Sudbury, Ontario'
+             WHEN '52117764' THEN 'Guelph, Ontario'
+             WHEN '44312491' THEN 'Halifax, Nova Scotia'
+             WHEN '44312575' THEN 'Hamilton, Ontario'
+             WHEN '1593151910' THEN 'Kamloops, British Columbia'
+             WHEN '52117776' THEN 'Kelowna, British Columbia'
+             WHEN '44312617' THEN 'Kingston, Ontario'
+             WHEN '44312587' THEN 'Kitchener-Cambridge-Waterloo, Ontario'
+             WHEN '1064948755' THEN 'Lethbridge, Alberta'
+             WHEN '44312593' THEN 'London, Ontario'
+             WHEN '52117746' THEN 'Moncton, New Brunswick'
+             WHEN '44312539' THEN 'Montréal, Quebec'
+             WHEN '1593151946' THEN 'Nanaimo, British Columbia'
+             WHEN '44312563' THEN 'Ottawa-Gatineau, Ontario part'
+             WHEN '44312545' THEN 'Ottawa-Gatineau, Quebec part'
+             WHEN '52117752' THEN 'Peterborough, Ontario'
+             WHEN '44312521' THEN 'Québec, Quebec'
+             WHEN '1593151892' THEN 'Red Deer, Alberta'
+             WHEN '44312641' THEN 'Regina, Saskatchewan'
+             WHEN '44312515' THEN 'Saguenay, Quebec'
+             WHEN '44312503' THEN 'Saint John, New Brunswick'
+             WHEN '44312647' THEN 'Saskatoon, Saskatchewan'
+             WHEN '44312527' THEN 'Sherbrooke, Quebec'
+             WHEN '44312473' THEN 'St. John\'s, Newfoundland and Labrador'
+             WHEN '44312581' THEN 'St.Catharines-Niagara, Ontario'
+             WHEN '44312611' THEN 'Thunder Bay, Ontario'
+             WHEN '44312569' THEN 'Toronto, Ontario'
+             WHEN '44312533' THEN 'Trois-Rivières, Quebec'
+             WHEN '44312677' THEN 'Vancouver, British Columbia'
+             WHEN '44312683' THEN 'Victoria, British Columbia'
+             WHEN '44312599' THEN 'Windsor, Ontario'
+             WHEN '44312629' THEN 'Winnipeg, Manitoba'
+             ELSE vector END AS cma,
+           round(c18 * 10) / 10.0 AS csi2018, round(c21 * 10) / 10.0 AS csi2021, round(c25 * 10) / 10.0 AS csi2025,
+           round((c21 / c18 - 1) * 1000) / 10.0 AS changeFirstHalfPct,
+           round((c25 / c21 - 1) * 1000) / 10.0 AS changeSecondHalfPct,
+           CASE WHEN (c21 / c18 - 1) * (c25 / c21 - 1) < 0 THEN 'REVERSED' ELSE '' END AS reversal
+    ORDER BY changeSecondHalfPct DESC LIMIT $limit
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada

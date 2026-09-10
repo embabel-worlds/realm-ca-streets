@@ -500,3 +500,20 @@
     population:
       type: number
       description: "Estimated persons, July 1 2025, whole CMA."
+
+- name: CaCmaCsiMid
+  description: "One CMA's 2021 Crime Severity Index from the national one-call fetch — the midpoint for momentum questions. Reached via LISTS_CSI_MID from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_CSI_MID
+      keyField: set
+      recordKeyField: key
+      producer: natCsiMid
+      maxAnchors: 1
+      description: "Every CMA's 2021 CSI in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — join against CaCmaCsiNow/CaCmaCsiThen."
+    csi:
+      type: number
+      description: "Crime Severity Index, 2021."

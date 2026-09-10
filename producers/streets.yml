@@ -407,3 +407,22 @@
     vector: vectorId
     population: vectorDataPoint.0.value
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# 2021 CSI midpoint — completes the momentum test (does 2018-21 trend predict
+# 2021-25?). Same one-call national pattern; fixed-year window.
+- name: natCsiMid
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "44312473,44312491,44312503,44312515,44312521,44312527,44312533,44312539,44312545,44312563,44312569,44312575,44312581,44312587,44312593,44312599,44312605,44312611,44312617,44312629,44312641,44312647,44312659,44312665,44312677,44312683,44312689,52117746,52117752,52117758,52117764,52117770,52117776,1064948737,1064948755,1593151856,1593151874,1593151892,1593151910,1593151928,1593151946"
+    startRefPeriod: "2021-01-01"
+    endReferencePeriod: "2021-12-31"
+  project:
+    vector: vectorId
+    csi: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
