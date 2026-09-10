@@ -1045,6 +1045,157 @@
            regress([growth, c18, clr18, clrChange], csiChange, cma) AS model,
            count(*) AS cmas
 
+- name: TheImpunityIndex
+  description: Who solves crime in Canada, and where solving is collapsing — every CMA's weighted clearance rate (share of reported crime solved, seriousness-weighted, StatCan 35-10-0026) in 2018 and 2025, the change in points, and the same period's severity change beside it, ranked by clearance deterioration. The pairing no register publishes. Direction is genuinely ambiguous — rising crime can swamp capacity, or falling clearance can breed impunity — and the view claims association only.
+  params:
+    limit:
+      type: int
+      default: 45
+      description: "Maximum CMAs."
+  cypher: |
+    MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CLEAR_THEN]->(ct:CaCmaClearThen)
+    MATCH (u)-[:LISTS_CLEAR_NOW]->(cn:CaCmaClearNow)
+    WITH u, ct, cn, CASE ct.vector
+               WHEN '53079756' THEN 'Abbotsford-Mission, British Columbia'
+               WHEN '53079849' THEN 'Barrie, Ontario'
+               WHEN '1064948749' THEN 'Belleville-Quinte West, Ontario'
+               WHEN '53079831' THEN 'Brantford, Ontario'
+               WHEN '53079708' THEN 'Calgary, Alberta'
+               WHEN '1593151932' THEN 'Chilliwack, British Columbia'
+               WHEN '1593151878' THEN 'Drummondville, Quebec'
+               WHEN '53079717' THEN 'Edmonton, Alberta'
+               WHEN '1593151860' THEN 'Fredericton, New Brunswick'
+               WHEN '53079609' THEN 'Greater Sudbury, Ontario'
+               WHEN '53079840' THEN 'Guelph, Ontario'
+               WHEN '53079879' THEN 'Halifax, Nova Scotia'
+               WHEN '53079564' THEN 'Hamilton, Ontario'
+               WHEN '1593151914' THEN 'Kamloops, British Columbia'
+               WHEN '53079858' THEN 'Kelowna, British Columbia'
+               WHEN '53079627' THEN 'Kingston, Ontario'
+               WHEN '53079582' THEN 'Kitchener-Cambridge-Waterloo, Ontario'
+               WHEN '1064948767' THEN 'Lethbridge, Alberta'
+               WHEN '53079591' THEN 'London, Ontario'
+               WHEN '53079813' THEN 'Moncton, New Brunswick'
+               WHEN '53079495' THEN 'Montréal, Quebec'
+               WHEN '1593151950' THEN 'Nanaimo, British Columbia'
+               WHEN '53079534' THEN 'Ottawa-Gatineau, Ontario part'
+               WHEN '53079504' THEN 'Ottawa-Gatineau, Quebec part'
+               WHEN '53079822' THEN 'Peterborough, Ontario'
+               WHEN '53079468' THEN 'Québec, Quebec'
+               WHEN '1593151896' THEN 'Red Deer, Alberta'
+               WHEN '53079678' THEN 'Regina, Saskatchewan'
+               WHEN '53079459' THEN 'Saguenay, Quebec'
+               WHEN '53079900' THEN 'Saint John, New Brunswick'
+               WHEN '53079687' THEN 'Saskatoon, Saskatchewan'
+               WHEN '53079477' THEN 'Sherbrooke, Quebec'
+               WHEN '53079657' THEN 'St. John\'s, Newfoundland and Labrador'
+               WHEN '53079573' THEN 'St.Catharines-Niagara, Ontario'
+               WHEN '53079618' THEN 'Thunder Bay, Ontario'
+               WHEN '53079543' THEN 'Toronto, Ontario'
+               WHEN '53079486' THEN 'Trois-Rivières, Quebec'
+               WHEN '53079738' THEN 'Vancouver, British Columbia'
+               WHEN '53079747' THEN 'Victoria, British Columbia'
+               WHEN '53079600' THEN 'Windsor, Ontario'
+               WHEN '53079648' THEN 'Winnipeg, Manitoba'
+               ELSE ct.vector END AS cma, CASE cn.vector
+               WHEN '53079756' THEN 'Abbotsford-Mission, British Columbia'
+               WHEN '53079849' THEN 'Barrie, Ontario'
+               WHEN '1064948749' THEN 'Belleville-Quinte West, Ontario'
+               WHEN '53079831' THEN 'Brantford, Ontario'
+               WHEN '53079708' THEN 'Calgary, Alberta'
+               WHEN '1593151932' THEN 'Chilliwack, British Columbia'
+               WHEN '1593151878' THEN 'Drummondville, Quebec'
+               WHEN '53079717' THEN 'Edmonton, Alberta'
+               WHEN '1593151860' THEN 'Fredericton, New Brunswick'
+               WHEN '53079609' THEN 'Greater Sudbury, Ontario'
+               WHEN '53079840' THEN 'Guelph, Ontario'
+               WHEN '53079879' THEN 'Halifax, Nova Scotia'
+               WHEN '53079564' THEN 'Hamilton, Ontario'
+               WHEN '1593151914' THEN 'Kamloops, British Columbia'
+               WHEN '53079858' THEN 'Kelowna, British Columbia'
+               WHEN '53079627' THEN 'Kingston, Ontario'
+               WHEN '53079582' THEN 'Kitchener-Cambridge-Waterloo, Ontario'
+               WHEN '1064948767' THEN 'Lethbridge, Alberta'
+               WHEN '53079591' THEN 'London, Ontario'
+               WHEN '53079813' THEN 'Moncton, New Brunswick'
+               WHEN '53079495' THEN 'Montréal, Quebec'
+               WHEN '1593151950' THEN 'Nanaimo, British Columbia'
+               WHEN '53079534' THEN 'Ottawa-Gatineau, Ontario part'
+               WHEN '53079504' THEN 'Ottawa-Gatineau, Quebec part'
+               WHEN '53079822' THEN 'Peterborough, Ontario'
+               WHEN '53079468' THEN 'Québec, Quebec'
+               WHEN '1593151896' THEN 'Red Deer, Alberta'
+               WHEN '53079678' THEN 'Regina, Saskatchewan'
+               WHEN '53079459' THEN 'Saguenay, Quebec'
+               WHEN '53079900' THEN 'Saint John, New Brunswick'
+               WHEN '53079687' THEN 'Saskatoon, Saskatchewan'
+               WHEN '53079477' THEN 'Sherbrooke, Quebec'
+               WHEN '53079657' THEN 'St. John\'s, Newfoundland and Labrador'
+               WHEN '53079573' THEN 'St.Catharines-Niagara, Ontario'
+               WHEN '53079618' THEN 'Thunder Bay, Ontario'
+               WHEN '53079543' THEN 'Toronto, Ontario'
+               WHEN '53079486' THEN 'Trois-Rivières, Quebec'
+               WHEN '53079738' THEN 'Vancouver, British Columbia'
+               WHEN '53079747' THEN 'Victoria, British Columbia'
+               WHEN '53079600' THEN 'Windsor, Ontario'
+               WHEN '53079648' THEN 'Winnipeg, Manitoba'
+               ELSE cn.vector END AS cmaNow
+    WHERE cmaNow = cma AND toFloat(ct.value) > 0
+    WITH u, cma, toFloat(ct.value) AS clr18, toFloat(cn.value) AS clr25
+    MATCH (u)-[:LISTS_CSI_THEN]->(o:CaCmaCsiThen)
+    MATCH (u)-[:LISTS_CSI_NOW]->(n:CaCmaCsiNow) WHERE n.vector = o.vector
+    WITH cma, clr18, clr25, o, n, CASE o.vector
+               WHEN '44312689' THEN 'Abbotsford-Mission, British Columbia'
+               WHEN '52117770' THEN 'Barrie, Ontario'
+               WHEN '1064948737' THEN 'Belleville-Quinte West, Ontario'
+               WHEN '52117758' THEN 'Brantford, Ontario'
+               WHEN '44312659' THEN 'Calgary, Alberta'
+               WHEN '1593151928' THEN 'Chilliwack, British Columbia'
+               WHEN '1593151874' THEN 'Drummondville, Quebec'
+               WHEN '44312665' THEN 'Edmonton, Alberta'
+               WHEN '1593151856' THEN 'Fredericton, New Brunswick'
+               WHEN '44312605' THEN 'Greater Sudbury, Ontario'
+               WHEN '52117764' THEN 'Guelph, Ontario'
+               WHEN '44312491' THEN 'Halifax, Nova Scotia'
+               WHEN '44312575' THEN 'Hamilton, Ontario'
+               WHEN '1593151910' THEN 'Kamloops, British Columbia'
+               WHEN '52117776' THEN 'Kelowna, British Columbia'
+               WHEN '44312617' THEN 'Kingston, Ontario'
+               WHEN '44312587' THEN 'Kitchener-Cambridge-Waterloo, Ontario'
+               WHEN '1064948755' THEN 'Lethbridge, Alberta'
+               WHEN '44312593' THEN 'London, Ontario'
+               WHEN '52117746' THEN 'Moncton, New Brunswick'
+               WHEN '44312539' THEN 'Montréal, Quebec'
+               WHEN '1593151946' THEN 'Nanaimo, British Columbia'
+               WHEN '44312563' THEN 'Ottawa-Gatineau, Ontario part'
+               WHEN '44312545' THEN 'Ottawa-Gatineau, Quebec part'
+               WHEN '52117752' THEN 'Peterborough, Ontario'
+               WHEN '44312521' THEN 'Québec, Quebec'
+               WHEN '1593151892' THEN 'Red Deer, Alberta'
+               WHEN '44312641' THEN 'Regina, Saskatchewan'
+               WHEN '44312515' THEN 'Saguenay, Quebec'
+               WHEN '44312503' THEN 'Saint John, New Brunswick'
+               WHEN '44312647' THEN 'Saskatoon, Saskatchewan'
+               WHEN '44312527' THEN 'Sherbrooke, Quebec'
+               WHEN '44312473' THEN 'St. John\'s, Newfoundland and Labrador'
+               WHEN '44312581' THEN 'St.Catharines-Niagara, Ontario'
+               WHEN '44312611' THEN 'Thunder Bay, Ontario'
+               WHEN '44312569' THEN 'Toronto, Ontario'
+               WHEN '44312533' THEN 'Trois-Rivières, Quebec'
+               WHEN '44312677' THEN 'Vancouver, British Columbia'
+               WHEN '44312683' THEN 'Victoria, British Columbia'
+               WHEN '44312599' THEN 'Windsor, Ontario'
+               WHEN '44312629' THEN 'Winnipeg, Manitoba'
+               ELSE o.vector END AS csiCma
+    WHERE csiCma = cma AND toFloat(o.csi) > 0
+    WITH cma, clr18, clr25, toFloat(o.csi) AS c18, toFloat(n.csi) AS c25
+    RETURN cma,
+           round(clr18 * 10) / 10.0 AS clearance2018,
+           round(clr25 * 10) / 10.0 AS clearance2025,
+           round((clr25 - clr18) * 10) / 10.0 AS clearanceChangePts,
+           round((c25 / c18 - 1) * 1000) / 10.0 AS severityChangePct
+    ORDER BY clearanceChangePts ASC LIMIT $limit
+
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada
