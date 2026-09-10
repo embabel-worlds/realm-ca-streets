@@ -517,3 +517,88 @@
     csi:
       type: number
       description: "Crime Severity Index, 2021."
+
+- name: CaCmaViolentNow
+  description: "Violent crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_VIOLENT_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_VIOLENT_NOW
+      keyField: set
+      recordKeyField: key
+      producer: natViolentNow
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Violent crime severity index, 2025."
+
+- name: CaCmaViolentThen
+  description: "Violent crime severity index, 2018 — one row per CMA from the national one-call fetch, reached via LISTS_VIOLENT_THEN from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_VIOLENT_THEN
+      keyField: set
+      recordKeyField: key
+      producer: natViolentThen
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Violent crime severity index, 2018."
+
+- name: CaCmaClearNow
+  description: "Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, reached via LISTS_CLEAR_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_CLEAR_NOW
+      keyField: set
+      recordKeyField: key
+      producer: natClearNow
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted."
+
+- name: CaCmaClearThen
+  description: "Weighted clearance rate, 2018 — one row per CMA from the national one-call fetch, reached via LISTS_CLEAR_THEN from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_CLEAR_THEN
+      keyField: set
+      recordKeyField: key
+      producer: natClearThen
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Weighted clearance rate, 2018."
+
+- name: CaCmaYouthNow
+  description: "Youth crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_YOUTH_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_YOUTH_NOW
+      keyField: set
+      recordKeyField: key
+      producer: natYouthNow
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Youth crime severity index, 2025."

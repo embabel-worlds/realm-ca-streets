@@ -426,3 +426,89 @@
     vector: vectorId
     csi: vectorDataPoint.0.value
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# ── National crime-factor producers (same one-call pattern) ─────────────────
+- name: natViolentNow
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "44312475,44312493,44312505,44312517,44312523,44312529,44312535,44312541,44312547,44312565,44312571,44312577,44312583,44312589,44312595,44312601,44312607,44312613,44312619,44312631,44312643,44312649,44312661,44312667,44312679,44312685,44312691,52117748,52117754,52117760,52117766,52117772,52117778,1064948739,1064948757,1593151867,1593151885,1593151903,1593151921,1593151939,1593151957"
+    startRefPeriod: "2025-01-01"
+    endReferencePeriod: "2025-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natViolentThen
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "44312475,44312493,44312505,44312517,44312523,44312529,44312535,44312541,44312547,44312565,44312571,44312577,44312583,44312589,44312595,44312601,44312607,44312613,44312619,44312631,44312643,44312649,44312661,44312667,44312679,44312685,44312691,52117748,52117754,52117760,52117766,52117772,52117778,1064948739,1064948757,1593151867,1593151885,1593151903,1593151921,1593151939,1593151957"
+    startRefPeriod: "2018-01-01"
+    endReferencePeriod: "2018-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natClearNow
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "53079459,53079468,53079477,53079486,53079495,53079504,53079534,53079543,53079564,53079573,53079582,53079591,53079600,53079609,53079618,53079627,53079648,53079657,53079678,53079687,53079708,53079717,53079738,53079747,53079756,53079813,53079822,53079831,53079840,53079849,53079858,53079879,53079900,1064948749,1064948767,1593151860,1593151878,1593151896,1593151914,1593151932,1593151950"
+    startRefPeriod: "2025-01-01"
+    endReferencePeriod: "2025-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natClearThen
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "53079459,53079468,53079477,53079486,53079495,53079504,53079534,53079543,53079564,53079573,53079582,53079591,53079600,53079609,53079618,53079627,53079648,53079657,53079678,53079687,53079708,53079717,53079738,53079747,53079756,53079813,53079822,53079831,53079840,53079849,53079858,53079879,53079900,1064948749,1064948767,1593151860,1593151878,1593151896,1593151914,1593151932,1593151950"
+    startRefPeriod: "2018-01-01"
+    endReferencePeriod: "2018-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+- name: natYouthNow
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "53079465,53079474,53079483,53079492,53079501,53079510,53079540,53079549,53079570,53079579,53079588,53079597,53079606,53079615,53079624,53079633,53079654,53079663,53079684,53079693,53079714,53079723,53079744,53079753,53079762,53079819,53079828,53079837,53079846,53079855,53079864,53079885,53079906,1064948743,1064948761,1593151871,1593151889,1593151907,1593151925,1593151943,1593151961"
+    startRefPeriod: "2025-01-01"
+    endReferencePeriod: "2025-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
