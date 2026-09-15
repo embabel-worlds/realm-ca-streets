@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Atlantic Ledger</title>
+<link rel="icon" type="image/svg+xml" href="atlantic-ledger.svg">
+<link rel="stylesheet" href="/api/v1/apps-runtime/v1/theme.css">
+<script src="/api/v1/apps-runtime/v1/embabel.js"></script>
+<script src="/api/v1/apps-runtime/gateway.js"></script>
+<script type="application/embabel-app+json">
+{
+  "v": 1,
+  "name": "atlantic-ledger",
+  "title": "The Atlantic Ledger",
+  "realms": ["ca-streets", "realm-uk-streets"],
+  "views": ["AtlanticAffordability", "AtlanticCrimeGeography", "AtlanticGradients",
+            "AtlanticImpunity", "WhereCrimeConcentrates",
+            "WhatBestPredictsCanadianCrime", "WhatBestPredictsCrime"],
+  "gateway": ["view"]
+}
+</script>
+<style>
+  :root {
+    --bg: #0c0d10; --panel: #131519; --line: #26292f; --ink: #eceae4;
+    --dim: #8d93a1; --ca: #d6543f; --uk: #5b9bd5; --gold: #e0b64f; --ghost: #3a3f48;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink);
+         font-family: Georgia, 'Times New Roman', serif; line-height: 1.55; padding: 0 0 80px; }
+  header { padding: 30px 26px 18px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 1.85rem; font-weight: normal; letter-spacing: .3px; }
+  h1 .ca { color: var(--ca); } h1 .uk { color: var(--uk); }
+  .thesis { color: var(--dim); max-width: 66ch; margin-top: 8px; font-size: .97rem; }
+  main { padding: 22px 26px; max-width: 1100px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+           padding: 18px 20px; margin-bottom: 20px; }
+  h2 { font-size: 1.05rem; font-weight: normal; color: var(--gold); margin-bottom: 4px; letter-spacing: .4px; }
+  .lede { color: var(--dim); font-size: .9rem; margin-bottom: 14px; max-width: 76ch; }
+  .lede b { color: var(--ink); font-weight: normal; }
+  .state { color: var(--dim); font-size: .9rem; padding: 8px 0; }
+  .state.err { color: var(--ca); }
+  .flag { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; }
+  .flag.ca { background: var(--ca); } .flag.uk { background: var(--uk); }
+
+  .ladder .rung { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+  .ladder .who { width: 220px; font-size: .92rem; flex: 0 0 auto; }
+  .ladder .who small { color: var(--dim); display: block; font-size: .74rem; }
+  .ladder .track { flex: 1; height: 13px; background: #1a1d22; border-radius: 3px; position: relative; }
+  .ladder .fill { position: absolute; left: 0; top: 0; height: 13px; border-radius: 3px; }
+  .ladder .fill.ca { background: var(--ca); } .ladder .fill.uk { background: var(--uk); }
+  .ladder .num { width: 90px; text-align: right; font-variant-numeric: tabular-nums; font-size: .92rem; flex: 0 0 auto; }
+  .basisnote { color: var(--dim); font-size: .78rem; margin-top: 10px; max-width: 78ch; }
+
+  table.duo { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  table.duo th { text-align: right; font-weight: normal; color: var(--dim); font-size: .76rem;
+                 text-transform: uppercase; letter-spacing: .6px; padding: 0 10px 7px; }
+  table.duo th:first-child { text-align: left; }
+  table.duo td { padding: 8px 10px; border-top: 1px solid var(--line); text-align: right;
+                 font-variant-numeric: tabular-nums; }
+  table.duo td:first-child { text-align: left; font-variant-numeric: normal; }
+
+  .grad .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+  .grad .axis { width: 150px; font-size: .93rem; flex: 0 0 auto; }
+  .grad .axis small { color: var(--dim); display: block; font-size: .72rem; }
+  .grad .pair { flex: 1; }
+  .grad .bar { display: flex; align-items: center; gap: 7px; height: 15px; margin: 2px 0; }
+  .grad .lbl { color: var(--dim); font-size: .68rem; width: 22px; text-align: right; flex: 0 0 auto; }
+  .grad .track { flex: 1; height: 9px; background: #1a1d22; border-radius: 2px; position: relative; }
+  .grad .zero { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--ghost); }
+  .grad .fill { position: absolute; top: 0; height: 9px; border-radius: 2px; }
+  .grad .fill.nd { opacity: .35; }
+  .grad .rnum { width: 66px; text-align: right; font-size: .82rem; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .grad .rnum.nd { color: var(--dim); }
+  .grad .verdict { width: 200px; font-size: .78rem; color: var(--dim); flex: 0 0 auto; }
+  .grad .verdict.hot { color: var(--gold); }
+
+  .beta .brow { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
+  .beta .bwho { width: 190px; font-size: .88rem; flex: 0 0 auto; }
+  .beta .btrack { flex: 1; height: 10px; background: #1a1d22; border-radius: 2px; position: relative; }
+  .beta .bzero { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--ghost); }
+  .beta .bfill { position: absolute; top: 0; height: 10px; border-radius: 2px; }
+  .beta .bnum { width: 62px; text-align: right; font-size: .84rem; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+  .colhead { font-size: .92rem; margin-bottom: 8px; }
+  .colhead b { font-weight: normal; }
+  .fitline { color: var(--dim); font-size: .82rem; margin-top: 8px; }
+  .fitline b { color: var(--ink); font-weight: normal; }
+
+  .note { border-left: 2px solid var(--gold); padding: 9px 0 9px 13px; color: var(--dim);
+          font-size: .88rem; margin-top: 14px; max-width: 76ch; }
+  .note b { color: var(--ink); font-weight: normal; }
+  footer { padding: 18px 26px; color: var(--dim); font-size: .82rem; border-top: 1px solid var(--line); }
+  footer a { color: var(--dim); text-decoration: underline dotted; cursor: pointer; }
+  #how { display: none; padding: 4px 26px 30px; max-width: 900px; }
+  #how h3 { font-size: .95rem; font-weight: normal; color: var(--gold); margin: 20px 0 6px; }
+  #how p, #how li { color: var(--dim); font-size: .88rem; max-width: 76ch; }
+  #how ul { margin: 6px 0 0 18px; }
+  #how code { color: #b9bdc6; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Atlantic Ledger <span class="ca">■</span><span class="uk">■</span></h1>
+  <p class="thesis">
+    Britain and Canada, measured against each other from their own official registers —
+    eleven UK sources and nine Canadian ones sharing one graph, so every panel below is a
+    single query that crosses the ocean. Every cross-country number is dimensionless; every
+    figure names the register it came from, because the registers are cousins, not twins.
+  </p>
+</header>
+
+<main>
+  <div class="panel">
+    <h2>The affordability ladder</h2>
+    <p class="lede">Years of local income to buy the local home, at every watched place in both
+      countries — one dimensionless ladder. The UK divides by an <b>individual's</b> pay, Canada
+      by a <b>household's</b>, so a UK rung carries a structural handicap of roughly the second
+      earner: gaps of a year or two are noise, gaps of five are geography.</p>
+    <div id="ladder" class="state">loading…</div>
+  </div>
+
+  <div class="panel">
+    <h2>Whose crime map is more unequal?</h2>
+    <p class="lede">Each country's crime figures reduced to a dimensionless spread. The metrics
+      differ — a per-1,000 rate against a severity index — so <b>only the spread columns
+      compare</b>, never the means. Britain is measured at ~300 districts and Canada at 41
+      metros, which mechanically widens the UK spread; the direction survives the caveat.</p>
+    <div id="geo" class="state">loading…</div>
+  </div>
+
+  <div class="panel">
+    <h2>Do the same things predict crime?</h2>
+    <p class="lede">Three gradients computed for both countries in one query — a cross-national
+      replication test. A faded bar is an association the sample cannot distinguish from zero.
+      What replicates is structure; what appears in one country only is circumstance.</p>
+    <div id="grads" class="state">loading…</div>
+  </div>
+
+  <div class="panel">
+    <h2>What best predicts crime, here and there</h2>
+    <p class="lede">Each country's own six-predictor model, standardized betas so the bars are
+      comparable within each column. Britain's crime is explained by what a place <b>is</b> —
+      deprivation, density, age. Canada's structural variables carry little; the clearance
+      rate and region carry the map.</p>
+    <div class="cols">
+      <div>
+        <div class="colhead"><span class="flag uk"></span><b>England</b> — crime rate per 1,000, ~263 districts</div>
+        <div id="ukmodel" class="state">loading…</div>
+      </div>
+      <div>
+        <div class="colhead"><span class="flag ca"></span><b>Canada</b> — Crime Severity Index, ~39 CMAs</div>
+        <div id="camodel" class="state">loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Impunity, both sides</h2>
+    <p class="lede">The share of reported crime where nobody is held to account. The instruments
+      differ — the UK figure is one month of street incidents already closed, open cases
+      excluded; the Canadian is a full-year severity-weighted national mean — so read each row
+      with its metric, never as one league table.</p>
+    <div id="impunity" class="state">loading…</div>
+  </div>
+
+  <div class="panel">
+    <h2>What only Britain can see</h2>
+    <p class="lede">How few streets carry half of each watched UK place's crime. Canada publishes
+      no street-level register at all, so this measurement is <b>structurally impossible</b>
+      there — which is itself an Atlantic finding: Britain can see crime concentration and
+      Canada cannot.</p>
+    <div id="conc" class="state">loading…</div>
+  </div>
+</main>
+
+<footer>
+  Association across areas, never causation — and never a statement about any person.
+  <a id="howlink">How this works</a>
+</footer>
+
+<section id="how">
+  <h3>One graph, two countries</h3>
+  <p>Both realms — <code>ca-streets</code> and <code>realm-uk-streets</code> — install into one
+    knowledge graph with one global label space, so a single saved view can traverse
+    <code>(u:UkDistricts)-[:LISTS_CRIME]→</code> and <code>(ca:CaCmaSet)-[:LISTS_CSI_NOW]→</code>
+    in the same statement. Nothing here is stored or synced: every figure is fetched from its
+    national source when the view runs, cached at that source's cadence.</p>
+  <h3>The views this page runs</h3>
+  <ul>
+    <li><code>AtlanticAffordability</code> — dwelling value over household income (Census 2021,
+      per watched Canadian place) beside average sale price over median full-time pay
+      (HM Land Registry HPI and ONS ASHE, per watched UK place).</li>
+    <li><code>AtlanticCrimeGeography</code> — each country's crime figures reduced to count,
+      mean, coefficient of variation and extremes. City of London is excluded (suppressed cell);
+      Westminster's rate is daytime-population-inflated, so the CV is the headline, never max/min.</li>
+    <li><code>AtlanticGradients</code> — income, young-adult share and population each correlated
+      with crime in both countries, in one query, with confidence intervals and detectability.</li>
+    <li><code>WhatBestPredictsCrime</code> (UK) and <code>WhatBestPredictsCanadianCrime</code> —
+      each country's six-predictor least-squares fit, standardized betas, honest R².</li>
+    <li><code>AtlanticImpunity</code> — Canada's severity-weighted share of crime not cleared,
+      beside each watched UK place's share of last month's street crimes closed with no suspect.</li>
+    <li><code>WhereCrimeConcentrates</code> — the Pareto count of streets carrying half of each
+      UK place's crime, from data.police.uk street-level incidents.</li>
+  </ul>
+  <h3>What an empty panel means</h3>
+  <p>An empty affordability, impunity or concentration panel usually means no places are being
+    watched in that country — those three ride watched places; the others ride national anchors
+    and need none. A panel that names a source failure is a connectivity problem at the register,
+    not an answer. The UK column of any panel goes empty if realm-uk-streets is not installed
+    beside this realm.</p>
+  <h3>Reading it honestly</h3>
+  <ul>
+    <li>Every cross-country number here is dimensionless — a ratio, a share, a coefficient.
+      Raw pounds never sit beside raw dollars.</li>
+    <li>UK crime counts offences where they happen; Canadian severity weights them by
+      seriousness and is police-reported. Both inflate or deflate places for reasons that are
+      about measurement, and the basis lines say so.</li>
+    <li>Britain's ~300 districts detect gradients Canada's 41 metros cannot — an undetectable
+      Canadian bar beside a detectable UK one of similar size is a power difference, not a
+      contradiction.</li>
+  </ul>
+  <h3>What the appliance did here that a conventional stack could not</h3>
+  <p>Twenty national registers, two countries, no ETL, no warehouse, no sync jobs. Each panel is
+    one saved view; the join across the Atlantic is a property of the graph, not a pipeline. The
+    conventional path to this page is two data teams and a reconciliation project — and its
+    numbers would be as old as the last run.</p>
+</section>
+
+<div id="embabel-badge" style="position:fixed;bottom:0;left:0;right:0;text-align:center;padding:6px 0;background:rgba(10,10,15,0.9);border-top:1px solid rgba(99,192,245,0.2);font-size:0.75rem;color:#6b7280;z-index:9999;pointer-events:none;">
+  Created with <a href="https://embabel.com" target="_blank" rel="noopener noreferrer" style="color:#63c0f5;text-decoration:none;pointer-events:auto;">Embabel Me</a>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt = (v, d) => (v === undefined || v === null) ? '—' : Number(v).toFixed(d === undefined ? 3 : d);
+const sfmt = (v) => (v >= 0 ? '' : '−') + Math.abs(v).toFixed(3);
+
+async function view(name, params) {
+  const res = await gateway.view.run(params ? { name, params } : { name });
+  return res.rows || [];
+}
+function fail(el, e) { el.className = 'state err';
+  el.textContent = 'Could not load: ' + String(e && e.message || e).slice(0, 140) +
+  ' — a source or realm problem, not an answer.'; }
+
+/* ── affordability ladder ── */
+async function ladder() {
+  const el = $('ladder');
+  try {
+    const rows = (await view('AtlanticAffordability')).filter(r => r.yearsOfIncome != null);
+    if (!rows.length) { el.textContent = 'No watched places with both halves of the ratio — watch a place in each country.'; return; }
+    rows.sort((a, b) => b.yearsOfIncome - a.yearsOfIncome);
+    const max = Math.max(...rows.map(r => r.yearsOfIncome));
+    el.className = ''; el.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'ladder';
+    for (const r of rows) {
+      const cls = r.country === 'CA' ? 'ca' : 'uk';
+      const rung = document.createElement('div'); rung.className = 'rung';
+      rung.innerHTML =
+        '<div class="who"><span class="flag ' + cls + '"></span>' + esc(r.place) +
+        '<small>' + esc(r.period) + '</small></div>' +
+        '<div class="track"><div class="fill ' + cls + '" style="width:' +
+        (r.yearsOfIncome / max * 100) + '%"></div></div>' +
+        '<div class="num">' + fmt(r.yearsOfIncome, 1) + ' yrs</div>';
+      wrap.appendChild(rung);
+    }
+    el.appendChild(wrap);
+    const basis = document.createElement('div'); basis.className = 'basisnote';
+    basis.textContent = [...new Set(rows.map(r => r.country + ': ' + r.basis))].join('  ·  ');
+    el.appendChild(basis);
+  } catch (e) { fail(el, e); }
+}
+
+/* ── crime geography spread ── */
+async function geography() {
+  const el = $('geo');
+  try {
+    const rows = await view('AtlanticCrimeGeography');
+    if (!rows.length) { el.textContent = 'No rows — both national anchors should answer; this is a source failure.'; return; }
+    el.className = ''; el.innerHTML = '';
+    const t = document.createElement('table'); t.className = 'duo';
+    t.innerHTML = '<tr><th>Series</th><th>Areas</th><th>Spread (CV %)</th><th>Max / min</th><th>Highest</th><th>Lowest</th></tr>';
+    for (const r of rows) {
+      const cls = /Canada/.test(r.series) ? 'ca' : 'uk';
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="flag ' + cls + '"></span>' + esc(r.series) + '</td>' +
+        '<td>' + r.n + '</td><td>' + fmt(r.spreadCvPct, 1) + '</td><td>' + fmt(r.maxOverMin, 1) +
+        '×</td><td>' + fmt(r.highest, 1) + '</td><td>' + fmt(r.lowest, 1) + '</td>';
+      t.appendChild(tr);
+    }
+    el.appendChild(t);
+  } catch (e) { fail(el, e); }
+}
+
+/* ── gradients replication ── */
+const AXES = [
+  { key: 'Money', sub: 'income vs crime', uk: 'ukMoney', ca: 'caMoney' },
+  { key: 'Youth', sub: 'share aged 20–24 vs crime', uk: 'ukYouth', ca: 'caYouth' },
+  { key: 'Size',  sub: 'population vs crime', uk: 'ukSize', ca: 'caSize' },
+];
+function gradVerdict(u, c) {
+  const ud = u && u.detectable, cd = c && c.detectable;
+  if (!ud && !cd) return { text: 'a replicated null — neither country shows it', hot: true };
+  if (ud && cd && Math.sign(u.r) === Math.sign(c.r)) return { text: 'replicates — structure, not circumstance', hot: true };
+  if (ud && cd) return { text: 'detectable in both — with OPPOSITE signs', hot: true };
+  if (ud && !cd) return { text: 'Britain only — circumstance or power', hot: false };
+  return { text: 'Canada only — circumstance or power', hot: false };
+}
+async function gradients() {
+  const el = $('grads');
+  try {
+    const row = (await view('AtlanticGradients'))[0];
+    if (!row) { el.textContent = 'No row — the cross-realm query answered nothing; is realm-uk-streets installed?'; return; }
+    el.className = ''; el.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'grad';
+    const mags = [];
+    for (const a of AXES) for (const s of ['uk', 'ca']) {
+      const cell = row[a[s]]; if (cell && typeof cell.r === 'number') mags.push(Math.abs(cell.r));
+    }
+    const scale = Math.max(0.1, ...mags);
+    for (const a of AXES) {
+      const u = row[a.uk], c = row[a.ca];
+      const r = document.createElement('div'); r.className = 'row';
+      const bars = ['uk', 'ca'].map((s) => {
+        const cell = s === 'uk' ? u : c;
+        const val = cell ? cell.r : null;
+        const nd = !cell || !cell.detectable;
+        const w = val == null ? 0 : Math.min(Math.abs(val) / scale, 1) * 50;
+        const side = (val == null || val >= 0) ? 'left:50%' : 'right:50%';
+        return '<div class="bar"><span class="lbl">' + s.toUpperCase() + '</span>' +
+          '<div class="track"><div class="zero"></div><div class="fill ' + s + (nd ? ' nd' : '') +
+          '" style="width:' + w + '%;' + side + ';background:var(--' + s + ')"></div></div>' +
+          '<span class="rnum' + (nd ? ' nd' : '') + '">' + (val == null ? '—' : sfmt(val)) +
+          (nd ? ' ∅' : '') + '</span></div>';
+      }).join('');
+      const v = gradVerdict(u, c);
+      r.innerHTML = '<div class="axis">' + a.key + '<small>' + a.sub + '</small></div>' +
+        '<div class="pair">' + bars + '</div>' +
+        '<div class="verdict' + (v.hot ? ' hot' : '') + '">' + v.text + '</div>';
+      wrap.appendChild(r);
+    }
+    el.appendChild(wrap);
+    const n = document.createElement('div'); n.className = 'basisnote';
+    n.textContent = row.ukAreas + ' UK districts vs ' + row.caAreas + ' Canadian CMAs — ∅ marks an ' +
+      'association the sample cannot distinguish from zero. ' + row.crimeBasis;
+    el.appendChild(n);
+  } catch (e) { fail(el, e); }
+}
+
+/* ── the two national models ── */
+const UK_ORDER = ['deprivation', 'density', 'youngAdults', 'pay', 'diversity', 'population'];
+const UK_LABEL = { deprivation: 'Deprivation', density: 'Density', youngAdults: 'Young adults',
+                   pay: 'Median pay', diversity: 'Ethnic diversity', population: 'Population' };
+const CA_LABEL = { income: 'Family income', unemployment: 'Unemployment', youngAdults: 'Young adults',
+                   growth: 'Growth', clearance: 'Clearance rate', population: 'Population' };
+function betaRows(el, model, order, labels, color) {
+  el.className = ''; el.innerHTML = '';
+  const coefs = (model.coefficients || []).map((c) => {
+    let name = String(c.predictor);
+    const idx = parseInt(name.replace(/^x/, ''), 10) - 1;
+    if (/^x\d+$/.test(name) && order[idx] !== undefined) name = order[idx];
+    return { name: labels[name] || name, beta: c.beta };
+  }).sort((a, b) => Math.abs(b.beta) - Math.abs(a.beta));
+  const scale = Math.max(0.1, ...coefs.map((c) => Math.abs(c.beta)));
+  const wrap = document.createElement('div'); wrap.className = 'beta';
+  for (const c of coefs) {
+    const w = Math.min(Math.abs(c.beta) / scale, 1) * 50;
+    const side = c.beta >= 0 ? 'left:50%' : 'right:50%';
+    const row = document.createElement('div'); row.className = 'brow';
+    row.innerHTML = '<div class="bwho">' + esc(c.name) + '</div>' +
+      '<div class="btrack"><div class="bzero"></div><div class="bfill" style="width:' + w +
+      '%;' + side + ';background:var(--' + color + ')"></div></div>' +
+      '<div class="bnum">' + sfmt(c.beta) + '</div>';
+    wrap.appendChild(row);
+  }
+  el.appendChild(wrap);
+  const f = document.createElement('div'); f.className = 'fitline';
+  f.innerHTML = 'R² <b>' + fmt(model.r2) + '</b> over <b>' + model.n + '</b> areas — the rest of the ' +
+    'variation is what open structural data cannot see.';
+  el.appendChild(f);
+}
+async function models() {
+  try {
+    const row = (await view('WhatBestPredictsCrime'))[0];
+    if (row && row.model) betaRows($('ukmodel'), row.model, UK_ORDER, UK_LABEL, 'uk');
+    else { $('ukmodel').textContent = 'No UK model — is realm-uk-streets installed?'; }
+  } catch (e) { fail($('ukmodel'), e); }
+  try {
+    const row = (await view('WhatBestPredictsCanadianCrime'))[0];
+    if (row && row.model) betaRows($('camodel'), row.model, [], CA_LABEL, 'ca');
+    else { $('camodel').textContent = 'No Canadian model returned.'; }
+  } catch (e) { fail($('camodel'), e); }
+}
+
+/* ── impunity ── */
+async function impunity() {
+  const el = $('impunity');
+  try {
+    const rows = await view('AtlanticImpunity');
+    if (!rows.length) { el.textContent = 'No rows — watch a UK place to light the street-level half.'; return; }
+    el.className = ''; el.innerHTML = '';
+    const t = document.createElement('table'); t.className = 'duo';
+    t.innerHTML = '<tr><th>Where</th><th>Nobody held to account</th><th>Basis</th></tr>';
+    for (const r of rows.sort((a, b) => b.pct - a.pct)) {
+      const cls = r.country === 'CA' ? 'ca' : 'uk';
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="flag ' + cls + '"></span>' + esc(r.place) + '</td>' +
+        '<td>' + fmt(r.pct, 1) + '%</td>' +
+        '<td style="text-align:left;color:var(--dim);font-size:.78rem;max-width:46ch">' + esc(r.metric) + ' (' + esc(r.period) + ')</td>';
+      t.appendChild(tr);
+    }
+    el.appendChild(t);
+  } catch (e) { fail(el, e); }
+}
+
+/* ── concentration ── */
+async function concentration() {
+  const el = $('conc');
+  try {
+    const rows = await view('WhereCrimeConcentrates');
+    el.className = ''; el.innerHTML = '';
+    if (!rows.length) {
+      el.innerHTML = '<div class="state">No watched UK places — watch one and this panel measures its concentration.</div>';
+    } else {
+      const t = document.createElement('table'); t.className = 'duo';
+      t.innerHTML = '<tr><th>UK place</th><th>Crimes</th><th>Streets</th><th>Streets carrying half</th><th>% of streets</th></tr>';
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td><span class="flag uk"></span>' + esc(r.place) + '</td><td>' + r.crimes +
+          '</td><td>' + r.distinctStreets + '</td><td>' + r.streetsCarryingHalf + '</td><td>' +
+          fmt(r.pctOfStreets, 1) + '%</td>';
+        t.appendChild(tr);
+      }
+      el.appendChild(t);
+    }
+    const n = document.createElement('div'); n.className = 'note';
+    n.innerHTML = '<b>Canada has no row in this table and cannot have one.</b> No national ' +
+      'street-level crime register exists — the census dwelling value stands in for sale prices, ' +
+      'and nothing stands in for this.';
+    el.appendChild(n);
+  } catch (e) { fail(el, e); }
+}
+
+$('howlink').addEventListener('click', () => {
+  const h = $('how');
+  h.style.display = h.style.display === 'block' ? 'none' : 'block';
+  if (h.style.display === 'block') h.scrollIntoView({ behavior: 'smooth' });
+});
+
+/* National panels first — they need no watched places and paint fast from cache;
+ * the place-anchored panels follow and own their slower fan-outs. */
+(async function start() {
+  await Promise.all([geography(), gradients()]);
+  await models();
+  await Promise.all([ladder(), impunity(), concentration()]);
+})();
+</script>
+</body>
+</html>

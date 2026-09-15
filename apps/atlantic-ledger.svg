@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="12" fill="#131519"/>
+  <!-- two ledgers meeting mid-Atlantic: maple red left, UK blue right -->
+  <rect x="10" y="18" width="18" height="6" rx="2" fill="#d6543f"/>
+  <rect x="10" y="29" width="13" height="6" rx="2" fill="#d6543f" opacity=".7"/>
+  <rect x="10" y="40" width="8"  height="6" rx="2" fill="#d6543f" opacity=".45"/>
+  <rect x="36" y="18" width="18" height="6" rx="2" fill="#5b9bd5"/>
+  <rect x="41" y="29" width="13" height="6" rx="2" fill="#5b9bd5" opacity=".7"/>
+  <rect x="46" y="40" width="8"  height="6" rx="2" fill="#5b9bd5" opacity=".45"/>
+  <line x1="32" y1="12" x2="32" y2="52" stroke="#3a3f48" stroke-width="1.5" stroke-dasharray="2 3"/>
+</svg>
