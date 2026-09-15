@@ -55,6 +55,26 @@ place) · `CaIncomeByParty` (StatCan income under Parliament's colours) ·
 different political families) · `AffordabilityGap` (years of income per home) ·
 `AirVsIncome` · `AlertsAtMyMPs` (live alerts joined to sitting MPs, bilingual) ·
 `CaCrimeVsIncome` (crime severity beside income and the MP's party) ·
+`WhatBestPredictsCanadianCrime` (the six-factor severity model over every
+CMA — income, unemployment, 20-24 share, growth, clearance, population —
+standardized betas and named residuals) · `CaCrimePredictorsOneByOne` (each
+factor alone, with detectability) · `CaCrimeModelWithPredictors` (the caller
+picks the predictors; same ~39-CMA sample for every combination) ·
+`CaCmasRanked` (the cross-section behind the model, worst severity first) ·
+`WhatForetoldCanadianCrime` (the same model on PREVIOUS-period predictors —
+2018 income, June-2019 unemployment, 2021 age/growth/clearance — so every
+predictor precedes the 2025 outcome) · `ClearanceLeadsOrLags` (the
+cross-lagged correlation-vs-causation test: early clearance change vs later
+severity change, and the reverse) ·
+`CanadaCrimeConvergence` · `WhereViolenceTookOver` · `ImpunityThreshold` ·
+`TheWesternResidual` · `DidProsperityProtect` · `TheBigCityParadox` (the
+hypothesis battery, one falsifiable claim per view — views/hypotheses.yml;
+CMA-level youth CSI is defined but UNPOPULATED at StatCan, so CaCmaYouthNow
+reads null) · `TheTriageHypothesis` · `ViolentImpunityForetold` ·
+`TheTwoSolitudesOfCrime` · `SmallCityVolatility` · `TheCohortWave` ·
+`AtlanticGradients` (in atlantic.yml — the same three crime gradients, both
+countries, one query; the Atlantic Ledger app at apps/atlantic-ledger.html
+puts all the cross-country views on one page) ·
 `CaCrimeByParty` · `HousingHeat` (new-home price index with year-over-year
 change, beside dwelling values and party) · `GasAtMyPlaces`.
 Single-source: `MorningCanada` (the live face of every place at one instant —

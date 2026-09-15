@@ -54,6 +54,43 @@ census axes a week), gone at rollback.
   (years of income per home), `AirVsIncome`, `AlertsAtMyMPs`, `MorningCanada`,
   `CensusLeague`, `WhoRepresentsMe` and more — each a cross-source question no
   single register answers.
+- **`apps/crime-predictors.html`** — the crime-PREDICTION instrument, the
+  realm-uk-streets pattern rebuilt for Canada: each CMA's Crime Severity
+  Index fitted on six predictors (T1FF family income, LFS unemployment, the
+  20-24 share, growth, the weighted clearance rate, population) with
+  toggleable predictors, standardized betas, alone-vs-in-model bars, named
+  residuals and the full ranked cross-section. Driven by
+  `CaCrimeModelWithPredictors` / `CaCrimePredictorsOneByOne` / `CaCmasRanked`,
+  with `WhatBestPredictsCanadianCrime` as the one-call full model,
+  `WhatForetoldCanadianCrime` as the LAGGED alternative (2018-2021 vintages
+  predicting 2025 severity, so the crude reverse story cannot produce a
+  coefficient) and `ClearanceLeadsOrLags` as the cross-lagged direction test
+  (`views/predictors.yml` — the same ~39-CMA sample in every view, so a beta
+  that moves moved because the model changed, not the sample).
+- **`views/hypotheses.yml`** — six one-view hypothesis tests over the national
+  cross-section: `CanadaCrimeConvergence` (beta and sigma), `WhereViolenceTookOver`
+  (severity recomposed toward violence, offenders named), `ImpunityThreshold`
+  (the clearance association split at the median), `TheWesternResidual` (does
+  the West survive clearance?), `DidProsperityProtect` (lagged income growth and
+  labour deterioration vs severity change), `TheBigCityParadox` (size vs the
+  index). A seventh, CohortOrPlace, died at the source — StatCan's CMA-level
+  youth-CSI vectors have never carried data — and the file documents the death.
+  Round two adds `TheTriageHypothesis` (does violent-case solving get protected
+  when overall clearance collapses?), `ViolentImpunityForetold` (2018 violent
+  impunity vs 2018-25 violence growth), `TheTwoSolitudesOfCrime` (West premium,
+  Quebec discount — region vs the whole battery), `SmallCityVolatility` (are
+  the realm's own outliers small-denominator noise?), `TheCohortWave` (youth
+  cohort growth vs violence — null), and `AtlanticGradients` in
+  `views/atlantic.yml` — the money/youth/size crime gradients computed for
+  Britain and Canada in ONE query, a cross-national replication test.
+- **`apps/atlantic-ledger.html`** — the cross-country dashboard: Britain and
+  Canada measured against each other from their own registers on one page —
+  the affordability ladder (years of income per home, both countries' watched
+  places), whose crime map is more unequal, the three-gradient replication
+  test (money/youth/size vs crime, verdict per axis), each country's own
+  six-predictor crime model side by side, impunity on both sides, and the
+  street-concentration measurement only Britain can make. Requires
+  realm-uk-streets beside this realm; degrades to Canada-only without it.
 - **`skills/ca-streets/`** — the chat skill: the join table, the add-a-place
   recipes, honesty rules (a Québec AQHI blank is coverage, not clean air), and
   the grounded-briefing recipe.
