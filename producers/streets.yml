@@ -147,12 +147,17 @@
   cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
 
 # ── The census (municipality) axis ───────────────────────────────────────────
-# Five one-figure producers, all keyed on the place's DGUID, all the same
+# Five one-figure producers, all keyed on the place's DGUID, all the same.
+# V2 (2026-09-15): the value path uses BRACKET grammar — on this appliance
+# build a dotted numeric segment resolves array indexes only, so
+# `observations.0.0` (numeric OBJECT key) resolved on no record and the whole
+# census axis read null. `observations['0'][0]` resolves. Renamed *V2 because
+# the per-key producer cache ignores everything but the name.
 # shape: the SDMX response is one record ($.data), the single observation
 # sits at a fixed path (fully pinned key = series '0:0:0:0:0'), and the
 # area's official name rides beside it from the structure block. A census
 # moves once every five years; the week-long cache is politeness.
-- name: censusPopulation
+- name: censusPopulationV2
   kind: remote
   operation: profilePopulation
   records: "$.data"
@@ -162,11 +167,11 @@
   args:
     format: jsondata
   project:
-    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
   cache: { kind: ttl, seconds: 604800 }
 
-- name: censusMedianAge
+- name: censusMedianAgeV2
   kind: remote
   operation: profileMedianAge
   records: "$.data"
@@ -176,11 +181,11 @@
   args:
     format: jsondata
   project:
-    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
   cache: { kind: ttl, seconds: 604800 }
 
-- name: censusHouseholdIncome
+- name: censusHouseholdIncomeV2
   kind: remote
   operation: profileHouseholdIncome
   records: "$.data"
@@ -190,11 +195,11 @@
   args:
     format: jsondata
   project:
-    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
   cache: { kind: ttl, seconds: 604800 }
 
-- name: censusDwellingValue
+- name: censusDwellingValueV2
   kind: remote
   operation: profileDwellingValue
   records: "$.data"
@@ -204,7 +209,7 @@
   args:
     format: jsondata
   project:
-    value: dataSets.0.series.0:0:0:0:0.observations.0.0
+    value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
   cache: { kind: ttl, seconds: 604800 }
 
@@ -542,6 +547,166 @@
     vectorIds: "53079461,53079470,53079479,53079488,53079497,53079506,53079536,53079545,53079566,53079575,53079584,53079593,53079602,53079611,53079620,53079629,53079650,53079659,53079680,53079689,53079710,53079719,53079740,53079749,53079758,53079815,53079824,53079833,53079842,53079851,53079860,53079881,53079902,1064948751,1064948769,1593151862,1593151880,1593151898,1593151916,1593151934,1593151952"
     startRefPeriod: "2018-01-01"
     endReferencePeriod: "2018-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# ── National crime-PREDICTOR producers (same one-call pattern) ──────────────
+# The structural axis the level model fits severity on. Each is ONE cached WDS
+# GET for every CMA; the fixed reference windows are deliberate (the producer
+# cache key ignores args, so a window change means renaming the producer).
+
+# Median total income, all census families, T1FF — annual, latest release 2023.
+# StatCan 11-10-0009. The Ottawa-Gatineau vector is the COMBINED CMA.
+- name: natFamilyIncome
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "21187397,21187517,21187597,21187677,21187717,21187757,21187797,21187837,21187997,21188037,21188077,21188117,21188157,21188197,21188237,21188277,21188317,21188397,21188477,21188517,21188597,21188637,21188717,21188757,21281488,21281528,42205781,42205821,42205861,42205901,42205941,42205981,61582014,61582794,61583496,61584978,61585095,61585563,61585602,61585719,61586538"
+    startRefPeriod: "2023-01-01"
+    endReferencePeriod: "2023-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# Unemployment rate by CMA — LFS 14-10-0459, 3-month moving average,
+# seasonally adjusted. Pinned to June 2026 (the .0 index needs a fixed first
+# point); rename the producer to move the window.
+- name: natUnemployment
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1643278046,1643278214,1643278326,1643278382,1643278438,1643278550,1643278606,1643278662,1643278718,1643278774,1643278830,1643278942,1643279110,1643279166,1643279222,1643279278,1643279334,1643279390,1643279446,1643279502,1643279558,1643279614,1643279670,1643279726,1643279782,1643279838,1643279894,1643280006,1643280118,1643280174,1643280286,1643280342,1643280398,1643280454,1643280566,1643280622,1643280678,1643280734,1643280790,1643280846,1643280902"
+    startRefPeriod: "2026-06-01"
+    endReferencePeriod: "2026-06-30"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# Residents aged 20-24 by CMA — the same demographic-estimates cube the
+# population producers read (17-10-0148), age member 20-24, July 1 2025.
+# Views divide by CaCmaPop2025 for the SHARE — same cube, same vintage.
+- name: natYouthPop
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1589858694,1589863179,1589866284,1589866629,1589866974,1589871804,1589873184,1589874564,1589875599,1589876289,1589878014,1589884569,1589884914,1589885949,1589886984,1589887674,1589888019,1589888364,1589888709,1589889054,1589890434,1589891124,1589891814,1589893884,1589895264,1589896644,1589898714,1589902164,1589903544,1589907684,1589908719,1589909754,1589911134,1589915619,1589916654,1589916999,1589917344,1589917689,1589918379,1589919414,1589930454"
+    startRefPeriod: "2025-01-01"
+    endReferencePeriod: "2025-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# 2021 clearance midpoint — completes the CROSS-LAGGED test (does a clearance
+# collapse PRECEDE a severity rise, or the reverse?). Same vectors as
+# natClearNow/natClearThen, fixed 2021 window.
+- name: natClearMid
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "53079459,53079468,53079477,53079486,53079495,53079504,53079534,53079543,53079564,53079573,53079582,53079591,53079600,53079609,53079618,53079627,53079648,53079657,53079678,53079687,53079708,53079717,53079738,53079747,53079756,53079813,53079822,53079831,53079840,53079849,53079858,53079879,53079900,1064948749,1064948767,1593151860,1593151878,1593151896,1593151914,1593151932,1593151950"
+    startRefPeriod: "2021-01-01"
+    endReferencePeriod: "2021-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# ── PREVIOUS-period predictor producers (the lagged model's axis) ────────────
+# Same vector lists as their current-vintage siblings, fixed earlier windows,
+# so WhatForetoldCanadianCrime fits 2025 severity on values that PRECEDE it.
+
+# Median family income, T1FF 2018 — the pre-pandemic income vintage.
+- name: natFamilyIncomeThen
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "21187397,21187517,21187597,21187677,21187717,21187757,21187797,21187837,21187997,21188037,21188077,21188117,21188157,21188197,21188237,21188277,21188317,21188397,21188477,21188517,21188597,21188637,21188717,21188757,21281488,21281528,42205781,42205821,42205861,42205901,42205941,42205981,61582014,61582794,61583496,61584978,61585095,61585563,61585602,61585719,61586538"
+    startRefPeriod: "2018-01-01"
+    endReferencePeriod: "2018-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# Unemployment rate, June 2019 — deliberately PRE-pandemic; 2020-21 rates measure lockdowns, not labour markets.
+- name: natUnemploymentThen
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1643278046,1643278214,1643278326,1643278382,1643278438,1643278550,1643278606,1643278662,1643278718,1643278774,1643278830,1643278942,1643279110,1643279166,1643279222,1643279278,1643279334,1643279390,1643279446,1643279502,1643279558,1643279614,1643279670,1643279726,1643279782,1643279838,1643279894,1643280006,1643280118,1643280174,1643280286,1643280342,1643280398,1643280454,1643280566,1643280622,1643280678,1643280734,1643280790,1643280846,1643280902"
+    startRefPeriod: "2019-06-01"
+    endReferencePeriod: "2019-06-30"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# July-1 2018 population — the base for early growth (2018-2021).
+- name: natPopThen
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1589858712,1589863197,1589866302,1589866647,1589866992,1589871822,1589873202,1589874582,1589875617,1589876307,1589878032,1589884587,1589884932,1589885967,1589887002,1589887692,1589888037,1589888382,1589888727,1589889072,1589890452,1589891142,1589891832,1589893902,1589895282,1589896662,1589898732,1589902182,1589903562,1589907702,1589908737,1589909772,1589911152,1589915637,1589916672,1589917017,1589917362,1589917707,1589918397,1589919432,1589930472"
+    startRefPeriod: "2018-01-01"
+    endReferencePeriod: "2018-12-31"
+  project:
+    vector: vectorId
+    value: vectorDataPoint.0.value
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
+
+# Residents aged 20-24, July 1 2021 — pairs with CaCmaPop2021 for the lagged share.
+- name: natYouthPopMid
+  kind: remote
+  operation: lfsVectorRange
+  cost: { rate: "1/second" }
+  records: "$[*].object"
+  keyTemplate: "{key}"
+  echoKeyAs: key
+  maxKeysPerCall: 1
+  args:
+    vectorIds: "1589858694,1589863179,1589866284,1589866629,1589866974,1589871804,1589873184,1589874564,1589875599,1589876289,1589878014,1589884569,1589884914,1589885949,1589886984,1589887674,1589888019,1589888364,1589888709,1589889054,1589890434,1589891124,1589891814,1589893884,1589895264,1589896644,1589898714,1589902164,1589903544,1589907684,1589908719,1589909754,1589911134,1589915619,1589916654,1589916999,1589917344,1589917689,1589918379,1589919414,1589930454"
+    startRefPeriod: "2021-01-01"
+    endReferencePeriod: "2021-12-31"
   project:
     vector: vectorId
     value: vectorDataPoint.0.value

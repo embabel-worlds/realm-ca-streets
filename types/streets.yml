@@ -247,7 +247,7 @@
       relationship: HAS_POPULATION
       keyField: dguid
       recordKeyField: key
-      producer: censusPopulation
+      producer: censusPopulationV2
       maxAnchors: 15
       description: "The municipality's 2021 census population."
   properties:
@@ -267,7 +267,7 @@
       relationship: HAS_MEDIAN_AGE
       keyField: dguid
       recordKeyField: key
-      producer: censusMedianAge
+      producer: censusMedianAgeV2
       maxAnchors: 15
       description: "The municipality's median age."
   properties:
@@ -287,7 +287,7 @@
       relationship: HAS_HOUSEHOLD_INCOME
       keyField: dguid
       recordKeyField: key
-      producer: censusHouseholdIncome
+      producer: censusHouseholdIncomeV2
       maxAnchors: 15
       description: "The municipality's median household income — the income half of every affluence view."
   properties:
@@ -307,7 +307,7 @@
       relationship: HAS_DWELLING_VALUE
       keyField: dguid
       recordKeyField: key
-      producer: censusDwellingValue
+      producer: censusDwellingValueV2
       maxAnchors: 15
       description: "The municipality's median dwelling value — the housing half of the affordability views."
   properties:
@@ -587,7 +587,7 @@
       description: "Weighted clearance rate, 2018."
 
 - name: CaCmaYouthNow
-  description: "Youth crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_YOUTH_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  description: "Youth crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_YOUTH_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views. COVERAGE: StatCan defines these CMA-level series in 35-10-0026 but has never populated them — every reference period 2015-2025 is null at the source (verified 2026-09-15), so value reads null and any correlate() over it returns null. Youth CSI is published at province level only."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_YOUTH_NOW
@@ -636,3 +636,140 @@
     value:
       type: number
       description: "Violent weighted clearance rate, 2018, percent."
+
+- name: CaCmaIncome
+  description: "Median total income of census families, T1FF 2023 — one row per CMA from the national one-call fetch, via LISTS_INCOME from CaCmaSet; rows carry the WDS vectorId, mapped to names in the predictor views. The income axis of the crime-prediction battery."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_INCOME
+      keyField: set
+      recordKeyField: key
+      producer: natFamilyIncome
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Median total income of census families, 2023, dollars."
+
+- name: CaCmaUnemployment
+  description: "Unemployment rate — LFS 3-month moving average, seasonally adjusted, June 2026 — one row per CMA from the national one-call fetch, via LISTS_UNEMPLOYMENT from CaCmaSet; rows carry the WDS vectorId, mapped to names in the predictor views. The labour axis of the crime-prediction battery."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_UNEMPLOYMENT
+      keyField: set
+      recordKeyField: key
+      producer: natUnemployment
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Unemployment rate, percent, 3-month moving average, seasonally adjusted."
+
+- name: CaCmaYouthPop
+  description: "Residents aged 20-24, July 1 2025 estimate — one row per CMA from the national one-call fetch, via LISTS_YOUTH_POP from CaCmaSet. Same cube and vintage as CaCmaPop2025, so dividing the two gives the 20-24 SHARE — criminology's age-crime curve axis — with no vintage mismatch. Rows carry the WDS vectorId, mapped to names in the predictor views."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_YOUTH_POP
+      keyField: set
+      recordKeyField: key
+      producer: natYouthPop
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Residents aged 20-24, count, July 1 2025."
+
+- name: CaCmaClearMid
+  description: "Weighted clearance rate, 2021 — the midpoint that turns the clearance-crime association into a CROSS-LAGGED test (early clearance change vs later severity change, and the reverse). One row per CMA from the national one-call fetch, via LISTS_CLEAR_MID from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_CLEAR_MID
+      keyField: set
+      recordKeyField: key
+      producer: natClearMid
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Weighted clearance rate, 2021, percent."
+
+- name: CaCmaIncomeThen
+  description: "Median total income of census families, T1FF 2018 — the PREVIOUS-period income vintage for the lagged crime model, via LISTS_INCOME_THEN from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_INCOME_THEN
+      keyField: set
+      recordKeyField: key
+      producer: natFamilyIncomeThen
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Median total income of census families, 2018, dollars."
+
+- name: CaCmaUnemploymentThen
+  description: "Unemployment rate, June 2019 (LFS 3-month moving average, seasonally adjusted) — deliberately pre-pandemic, the PREVIOUS-period labour vintage for the lagged crime model, via LISTS_UNEMPLOYMENT_THEN from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_UNEMPLOYMENT_THEN
+      keyField: set
+      recordKeyField: key
+      producer: natUnemploymentThen
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Unemployment rate, percent, June 2019."
+
+- name: CaCmaPop2018
+  description: "July-1 2018 population estimate — the base for EARLY growth (2018-2021) in the lagged crime model, via LISTS_POP_2018 from CaCmaSet. Same cube as CaCmaPop2021/CaCmaPop2025."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_POP_2018
+      keyField: set
+      recordKeyField: key
+      producer: natPopThen
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Population estimate, July 1 2018."
+
+- name: CaCmaYouthPopMid
+  description: "Residents aged 20-24, July 1 2021 — pairs with CaCmaPop2021 for the PREVIOUS-period 20-24 share in the lagged crime model, via LISTS_YOUTH_POP_MID from CaCmaSet."
+  virtualJoins:
+    - anchorLabel: CaCmaSet
+      relationship: LISTS_YOUTH_POP_MID
+      keyField: set
+      recordKeyField: key
+      producer: natYouthPopMid
+      maxAnchors: 1
+      description: "Every CMA in one call."
+  properties:
+    key: "The anchor set literal — the join link."
+    vector: "The WDS vector id — the national join/name key."
+    value:
+      type: number
+      description: "Residents aged 20-24, count, July 1 2021."
+
