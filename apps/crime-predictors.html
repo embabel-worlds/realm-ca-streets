@@ -10,12 +10,21 @@
 <script src="/api/v1/apps-runtime/gateway.js"></script>
 <script type="application/embabel-app+json">
 {
-  "v": 1,
+  "version": 1,
   "name": "crime-predictors",
-  "title": "What Predicts Crime in Canada",
-  "realms": ["ca-streets"],
-  "views": ["CaCrimeModelWithPredictors", "CaCrimePredictorsOneByOne", "CaCmasRanked"],
-  "gateway": ["view"]
+  "requires": {
+    "views": [
+      "CaCrimeModelWithPredictors",
+      "CaCrimePredictorsOneByOne",
+      "CaCmasRanked"
+    ],
+    "realms": [
+      "ca-streets"
+    ],
+    "namespaces": [
+      "view"
+    ]
+  }
 }
 </script>
 <style>

@@ -10,14 +10,26 @@
 <script src="/api/v1/apps-runtime/gateway.js"></script>
 <script type="application/embabel-app+json">
 {
-  "v": 1,
+  "version": 1,
   "name": "atlantic-ledger",
-  "title": "The Atlantic Ledger",
-  "realms": ["ca-streets", "realm-uk-streets"],
-  "views": ["AtlanticAffordability", "AtlanticCrimeGeography", "AtlanticGradients",
-            "AtlanticImpunity", "WhereCrimeConcentrates",
-            "WhatBestPredictsCanadianCrime", "WhatBestPredictsCrime"],
-  "gateway": ["view"]
+  "requires": {
+    "views": [
+      "AtlanticAffordability",
+      "AtlanticCrimeGeography",
+      "AtlanticGradients",
+      "AtlanticImpunity",
+      "WhereCrimeConcentrates",
+      "WhatBestPredictsCanadianCrime",
+      "WhatBestPredictsCrime"
+    ],
+    "realms": [
+      "ca-streets",
+      "realm-uk-streets"
+    ],
+    "namespaces": [
+      "view"
+    ]
+  }
 }
 </script>
 <style>
