@@ -443,7 +443,7 @@
       description: "Every CMA's latest CSI under one literal-seeded anchor — one cached WDS call, ~40 transient rows."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the identity the national views join and name on."
+    vector: { type: string, description: "The WDS vector id — the identity the national views join and name on." }
     csi:
       type: number
       description: "Crime Severity Index, latest year (Canada 2006 = 100)."
@@ -461,7 +461,7 @@
       description: "Every CMA's 2018 CSI in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — join on it against CaCmaCsiNow."
+    vector: { type: string, description: "The WDS vector id — join on it against CaCmaCsiNow." }
     csi:
       type: number
       description: "Crime Severity Index, 2018."
@@ -479,7 +479,7 @@
       description: "Every CMA's 2021 estimate in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     population:
       type: number
       description: "Estimated persons, July 1 2021, whole CMA."
@@ -496,7 +496,7 @@
       description: "Every CMA's 2025 estimate in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — join on it against CaCmaPop2021."
+    vector: { type: string, description: "The WDS vector id — join on it against CaCmaPop2021." }
     population:
       type: number
       description: "Estimated persons, July 1 2025, whole CMA."
@@ -513,7 +513,7 @@
       description: "Every CMA's 2021 CSI in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — join against CaCmaCsiNow/CaCmaCsiThen."
+    vector: { type: string, description: "The WDS vector id — join against CaCmaCsiNow/CaCmaCsiThen." }
     csi:
       type: number
       description: "Crime Severity Index, 2021."
@@ -530,7 +530,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Violent crime severity index, 2025."
@@ -547,7 +547,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Violent crime severity index, 2018."
@@ -564,7 +564,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted."
@@ -581,7 +581,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Weighted clearance rate, 2018."
@@ -598,7 +598,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Youth crime severity index, 2025."
@@ -615,7 +615,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Violent weighted clearance rate, 2025, percent."
@@ -632,7 +632,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Violent weighted clearance rate, 2018, percent."
@@ -649,7 +649,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Median total income of census families, 2023, dollars."
@@ -666,7 +666,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Unemployment rate, percent, 3-month moving average, seasonally adjusted."
@@ -683,7 +683,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Residents aged 20-24, count, July 1 2025."
@@ -700,7 +700,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Weighted clearance rate, 2021, percent."
@@ -717,7 +717,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Median total income of census families, 2018, dollars."
@@ -734,7 +734,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Unemployment rate, percent, June 2019."
@@ -751,7 +751,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Population estimate, July 1 2018."
@@ -768,7 +768,7 @@
       description: "Every CMA in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: "The WDS vector id — the national join/name key."
+    vector: { type: string, description: "The WDS vector id — the national join/name key." }
     value:
       type: number
       description: "Residents aged 20-24, count, July 1 2021."
