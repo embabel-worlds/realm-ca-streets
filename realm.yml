@@ -1,6 +1,7 @@
 name: ca-streets
 description: |
-  Street-level Canada, joined at a place: the sitting MP for the riding (and the
+  Street-level Canada for the places you watch: representatives, census, crime, air, rivers and weather.
+  Joined at a place: the sitting MP for the riding (and the
   MPP, mayor and councillor for the same postal code), Census 2021 population,
   median age, household income, dwelling values and unemployment for the
   municipality, live Air Quality Health Index, real-time river gauges, active
@@ -14,7 +15,11 @@ description: |
   under the leaf, with a loon on the water.
 
   No API keys and no accounts — the realm works the moment it is installed.
-version: 0.3.0
+version: 0.3.1
+requires:
+  # A soft requirement (a plain version): only the Atlantic comparison views read realm-uk-streets'
+  # labels, so the rest of the realm works without it.
+  realm-uk-streets: "0.4.0"
 author: rod
 category: government
 tags:

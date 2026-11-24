@@ -66,32 +66,50 @@
       description: "WDS vector id for the place's New Housing Price Index, total house+land (table 18-10-0205, CMA level) — the HAS_NHPI key."
     nhpiArea:
       type: string
-      description: "The geography the NHPI vector describes."
+      description: "Name of the geography the NHPI vector describes (a place name, not an area in km)."
     gasVector:
       type: string
       description: "WDS vector id for the place's monthly average regular self-serve gasoline price (table 18-10-0001, city level) — the HAS_GAS key."
     gasArea:
       type: string
-      description: "The geography the gas vector describes."
+      description: "Name of the geography the gas vector describes (a place name, not an area in km)."
     startsVector:
       type: string
       description: "WDS vector id for the place's monthly housing STARTS, total units (CMHC table 34-10-0154, CMA level) — the HAS_HOUSING_STARTS key."
     startsArea:
       type: string
-      description: "The geography the starts vector describes."
+      description: "Name of the geography the starts vector describes (a place name, not an area in km)."
     popVector:
       type: string
       description: "WDS vector id for the place's July-1 population estimate (table 17-10-0148, CMA/CA level) — the HAS_POP_NOW key."
     popArea:
       type: string
-      description: "The geography the population vector describes."
+      description: "Name of the geography the population vector describes (a place name, not an area in km)."
     notes:
       type: string
       description: "Why the user watches this place — free text, optional."
+  examples:
+    - q: "who is the MP for each place I watch, and how rich is the municipality"
+      cypher: |
+        MATCH (p:CaPlace)-[:HAS_SEAT]->(s:CaSeat)
+        OPTIONAL MATCH (p)-[:HAS_HOUSEHOLD_INCOME]->(i:CaHouseholdIncome)
+        RETURN p.name AS place, s.mp AS mp, s.party AS party, s.riding AS riding, i.value AS medianHouseholdIncome2020
+        ORDER BY medianHouseholdIncome2020 DESC
+    - q: "is the river high near my places right now"
+      cypher: |
+        MATCH (p:CaPlace)-[:HAS_RIVER]->(r:RiverReading)
+        WITH p, r ORDER BY r.at DESC
+        WITH p, r.stationNumber AS gauge, collect(r)[0] AS latest
+        RETURN p.name AS place, gauge, latest.station AS station, latest.level AS levelMetres, latest.at AS at
+    - q: "which watched places have a weather warning now"
+      cypher: |
+        MATCH (p:CaPlace)-[:HAS_ALERT]->(a:CaWeatherAlert)
+        WHERE a.alertType = 'warning'
+        RETURN p.name AS place, a.alertName AS alert, a.expires AS expires
 
 # ── The riding axis ──────────────────────────────────────────────────────────
 - name: CaSeat
-  description: "The federal seat covering a watched place: the CURRENT sitting MP, party and riding, from the House of Commons via Represent. Reached via HAS_SEAT."
+  description: "One federal seat covering a watched place, identified by the member's `url`: the CURRENT sitting MP, party and riding, from the House of Commons via Represent. Reached via HAS_SEAT."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_SEAT
@@ -139,7 +157,7 @@
 
 # ── The coordinate axis ──────────────────────────────────────────────────────
 - name: AirQualityObs
-  description: "The LATEST Air Quality Health Index observation at each monitoring station near a watched place (±0.7°), from Environment Canada. Reached via HAS_AIR. AQHI scale: 1-3 low risk, 4-6 moderate, 7-10 high, 10+ very high. Stations exist near cities and larger towns only, and the federal network does NOT include Québec (own IQA network) — an empty result is a COVERAGE fact, not clean air."
+  description: "One AQHI observation, identified by `id` (station + time): the LATEST Air Quality Health Index observation at each monitoring station near a watched place (±0.7°), from Environment Canada. Reached via HAS_AIR. AQHI scale: 1-3 low risk, 4-6 moderate, 7-10 high, 10+ very high. Stations exist near cities and larger towns only, and the federal network does NOT include Québec (own IQA network) — an empty result is a COVERAGE fact, not clean air."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_AIR
@@ -162,7 +180,7 @@
     observedAt: "Observation time, ISO 8601 UTC."
 
 - name: RiverReading
-  description: "A real-time water-level reading from a hydrometric gauge near a watched place (±0.2°), from the Water Survey of Canada via GeoMet. Reached via HAS_RIVER — up to 30 recent 5-minute readings across nearby stations; de-duplicate by stationNumber for the latest per river. LEVEL is metres on the station's own datum: compare a station against ITSELF over time, never one river's level against another's."
+  description: "One real-time water-level reading, identified by `id` (station + time), from a hydrometric gauge near a watched place (±0.2°), from the Water Survey of Canada via GeoMet. Reached via HAS_RIVER — up to 30 recent 5-minute readings across nearby stations; de-duplicate by stationNumber for the latest per river. LEVEL is metres on the station's own datum: compare a station against ITSELF over time, never one river's level against another's."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_RIVER
@@ -209,7 +227,7 @@
     expires: "When the bulletin expires, ISO 8601 UTC."
 
 - name: LocalWeather
-  description: "Current conditions at the weather.gc.ca city page(s) nearest a watched place. Reached via HAS_WEATHER. Overnight some sites report no conditions — nulls are normal, not an outage. Bilingual: site/condition carry the official English wording, siteFr/conditionFr the official French."
+  description: "One weather.gc.ca city page, identified by `id`, with its current conditions; the page(s) nearest a watched place. Reached via HAS_WEATHER. Overnight some sites report no conditions — nulls are normal, not an outage. Bilingual: site/condition carry the official English wording, siteFr/conditionFr the official French."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_WEATHER
@@ -241,7 +259,7 @@
 # DGUID. CSD level means the WHOLE municipality: Toronto's figure describes
 # 2.8M people, not the block — say so when presenting.
 - name: CaPopulation
-  description: "Census 2021 population of a watched place's municipality (census subdivision). Reached via HAS_POPULATION — one row per place. Describes the whole municipality, not the street."
+  description: "One municipality's Census 2021 population, identified by its DGUID `key` (census subdivision of a watched place). Reached via HAS_POPULATION — one row per place. Describes the whole municipality, not the street."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_POPULATION
@@ -257,11 +275,11 @@
         identity: "true"
     value:
       type: number
-      description: "Population, 2021 Census."
-    area: "The municipality's official census name."
+      description: "Population, 2021 Census, in units of persons."
+    area: "The municipality's official census name (a place name, not an area in km)."
 
 - name: CaMedianAge
-  description: "Median age of the population, Census 2021, for a watched place's municipality. Reached via HAS_MEDIAN_AGE — one row per place."
+  description: "One municipality's median age, Census 2021, identified by its DGUID `key`, for a watched place. Reached via HAS_MEDIAN_AGE — one row per place."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_MEDIAN_AGE
@@ -277,11 +295,11 @@
         identity: "true"
     value:
       type: number
-      description: "Median age in years, 2021 Census."
-    area: "The municipality's official census name."
+      description: "Median age, 2021 Census, in units of years."
+    area: "The municipality's official census name (a place name, not an area in km)."
 
 - name: CaHouseholdIncome
-  description: "Median total household income in 2020 ($), Census 2021, for a watched place's municipality. Reached via HAS_HOUSEHOLD_INCOME — one row per place. The income year is 2020 (the census asks about the prior year)."
+  description: "One municipality's figure, identified by its DGUID `key`: Median total household income in 2020 ($), Census 2021, for a watched place's municipality. Reached via HAS_HOUSEHOLD_INCOME — one row per place. The income year is 2020 (the census asks about the prior year)."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_HOUSEHOLD_INCOME
@@ -298,10 +316,10 @@
     value:
       type: number
       description: "Median total household income, 2020, CAD."
-    area: "The municipality's official census name."
+    area: "The municipality's official census name (a place name, not an area in km)."
 
 - name: CaDwellingValue
-  description: "Median value of dwellings ($), Census 2021, owner-estimated, for a watched place's municipality. Reached via HAS_DWELLING_VALUE — one row per place. Owner-stated value, not sale prices — Canada publishes no national price-paid register."
+  description: "One municipality's figure, identified by its DGUID `key`: Median value of dwellings ($), Census 2021, owner-estimated, for a watched place's municipality. Reached via HAS_DWELLING_VALUE — one row per place. Owner-stated value, not sale prices — Canada publishes no national price-paid register."
   virtualJoins:
     - anchorLabel: CaPlace
       relationship: HAS_DWELLING_VALUE
@@ -318,7 +336,7 @@
     value:
       type: number
       description: "Median dwelling value, CAD, owner-estimated, 2021 Census."
-    area: "The municipality's official census name."
+    area: "The municipality's official census name (a place name, not an area in km)."
 
 - name: CaUnemploymentNow
   description: "CURRENT unemployment rate for the watched place's census metropolitan area (or its province, where no CMA covers it) — StatCan Labour Force Survey, table 14-10-0459, three-month moving average, seasonally adjusted, monthly. Reached via HAS_UNEMPLOYMENT_NOW; one row per month since 2025, so take the LATEST month (ORDER BY month DESC). Replaces the 2021 census unemployment figure, whose reference week was May 2021 — mid-pandemic and not comparable to today."
@@ -443,14 +461,14 @@
       description: "Every CMA's latest CSI under one literal-seeded anchor — one cached WDS call, ~40 transient rows."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the identity the national views join and name on." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the identity the national views join and name on. Identity: one row per series in the national read." }
     csi:
       type: number
       description: "Crime Severity Index, latest year (Canada 2006 = 100)."
     year: "The reference year, YYYY-01-01."
 
 - name: CaCmaCsiThen
-  description: "One CMA's 2018 Crime Severity Index from the same national fetch — the baseline for change. Reached via LISTS_CSI_THEN from CaCmaSet."
+  description: "One CMA's row, identified by its WDS `vector`: One CMA's 2018 Crime Severity Index from the same national fetch — the baseline for change. Reached via LISTS_CSI_THEN from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_CSI_THEN
@@ -461,14 +479,14 @@
       description: "Every CMA's 2018 CSI in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — join on it against CaCmaCsiNow." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — join on it against CaCmaCsiNow. Identity: one row per series in the national read." }
     csi:
       type: number
       description: "Crime Severity Index, 2018."
     year: "The reference year."
 
 - name: CaCmaPop2021
-  description: "One CMA's July-1 2021 population estimate from the national one-call fetch. Reached via MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_POP_2021]->(x); rows carry the WDS vectorId, mapped to names in the national views."
+  description: "One CMA's row, identified by its WDS `vector`: One CMA's July-1 2021 population estimate from the national one-call fetch. Reached via MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_POP_2021]->(x); rows carry the WDS vectorId, mapped to names in the national views."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_POP_2021
@@ -479,13 +497,13 @@
       description: "Every CMA's 2021 estimate in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     population:
       type: number
       description: "Estimated persons, July 1 2021, whole CMA."
 
 - name: CaCmaPop2025
-  description: "One CMA's July-1 2025 population estimate from the national one-call fetch. Reached via LISTS_POP_2025 from CaCmaSet."
+  description: "One CMA's row, identified by its WDS `vector`: One CMA's July-1 2025 population estimate from the national one-call fetch. Reached via LISTS_POP_2025 from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_POP_2025
@@ -496,13 +514,13 @@
       description: "Every CMA's 2025 estimate in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — join on it against CaCmaPop2021." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — join on it against CaCmaPop2021. Identity: one row per series in the national read." }
     population:
       type: number
       description: "Estimated persons, July 1 2025, whole CMA."
 
 - name: CaCmaCsiMid
-  description: "One CMA's 2021 Crime Severity Index from the national one-call fetch — the midpoint for momentum questions. Reached via LISTS_CSI_MID from CaCmaSet."
+  description: "One CMA's row, identified by its WDS `vector`: One CMA's 2021 Crime Severity Index from the national one-call fetch — the midpoint for momentum questions. Reached via LISTS_CSI_MID from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_CSI_MID
@@ -513,13 +531,13 @@
       description: "Every CMA's 2021 CSI in one call."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — join against CaCmaCsiNow/CaCmaCsiThen." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — join against CaCmaCsiNow/CaCmaCsiThen. Identity: one row per series in the national read." }
     csi:
       type: number
       description: "Crime Severity Index, 2021."
 
 - name: CaCmaViolentNow
-  description: "Violent crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_VIOLENT_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  description: "One CMA's row, identified by its WDS `vector`: Violent crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_VIOLENT_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_VIOLENT_NOW
@@ -527,16 +545,16 @@
       recordKeyField: key
       producer: natViolentNow
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Violent crime severity index, 2025, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Violent crime severity index, 2025."
+      description: "Violent crime severity index, 2025, in index units (Canada 2006 = 100)."
 
 - name: CaCmaViolentThen
-  description: "Violent crime severity index, 2018 — one row per CMA from the national one-call fetch, reached via LISTS_VIOLENT_THEN from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  description: "One CMA's row, identified by its WDS `vector`: Violent crime severity index, 2018 — one row per CMA from the national one-call fetch, reached via LISTS_VIOLENT_THEN from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_VIOLENT_THEN
@@ -544,16 +562,16 @@
       recordKeyField: key
       producer: natViolentThen
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Violent crime severity index, 2018, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Violent crime severity index, 2018."
+      description: "Violent crime severity index, 2018, in index units (Canada 2006 = 100)."
 
 - name: CaCmaClearNow
-  description: "Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, reached via LISTS_CLEAR_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  description: "One CMA's row, identified by its WDS `vector`: Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, reached via LISTS_CLEAR_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_CLEAR_NOW
@@ -561,16 +579,16 @@
       recordKeyField: key
       producer: natClearNow
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Weighted clearance rate, 2025, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted."
+      description: "Weighted clearance rate, 2025 — share of reported crime solved, seriousness-weighted, in percent (%)."
 
 - name: CaCmaClearThen
-  description: "Weighted clearance rate, 2018 — one row per CMA from the national one-call fetch, reached via LISTS_CLEAR_THEN from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
+  description: "One CMA's row, identified by its WDS `vector`: Weighted clearance rate, 2018 — one row per CMA from the national one-call fetch, reached via LISTS_CLEAR_THEN from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_CLEAR_THEN
@@ -578,16 +596,16 @@
       recordKeyField: key
       producer: natClearThen
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Weighted clearance rate, 2018, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Weighted clearance rate, 2018."
+      description: "Weighted clearance rate, 2018, in percent (%)."
 
 - name: CaCmaYouthNow
-  description: "Youth crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_YOUTH_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views. COVERAGE: StatCan defines these CMA-level series in 35-10-0026 but has never populated them — every reference period 2015-2025 is null at the source (verified 2026-09-15), so value reads null and any correlate() over it returns null. Youth CSI is published at province level only."
+  description: "One CMA's row, identified by its WDS `vector`: Youth crime severity index, 2025 — one row per CMA from the national one-call fetch, reached via LISTS_YOUTH_NOW from CaCmaSet; rows carry the WDS vectorId, mapped to names in the factor views. COVERAGE: StatCan defines these CMA-level series in 35-10-0026 but has never populated them — every reference period 2015-2025 is null at the source (verified 2026-09-15), so value reads null and any correlate() over it returns null. Youth CSI is published at province level only."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_YOUTH_NOW
@@ -595,16 +613,16 @@
       recordKeyField: key
       producer: natYouthNow
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Youth crime severity index, 2025, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Youth crime severity index, 2025."
+      description: "Youth crime severity index, 2025, in index units (Canada 2006 = 100)."
 
 - name: CaCmaViolClearNow
-  description: "Violent weighted clearance rate, 2025 — the share of reported VIOLENT crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, via LISTS_VIOLCLEAR_NOW from CaCmaSet."
+  description: "One CMA's row, identified by its WDS `vector`: Violent weighted clearance rate, 2025 — the share of reported VIOLENT crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, via LISTS_VIOLCLEAR_NOW from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_VIOLCLEAR_NOW
@@ -612,16 +630,16 @@
       recordKeyField: key
       producer: natViolClearNow
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Violent weighted clearance rate, 2025, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Violent weighted clearance rate, 2025, percent."
 
 - name: CaCmaViolClearThen
-  description: "Violent weighted clearance rate, 2018 — the share of reported VIOLENT crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, via LISTS_VIOLCLEAR_THEN from CaCmaSet."
+  description: "One CMA's row, identified by its WDS `vector`: Violent weighted clearance rate, 2018 — the share of reported VIOLENT crime solved, seriousness-weighted — one row per CMA from the national one-call fetch, via LISTS_VIOLCLEAR_THEN from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_VIOLCLEAR_THEN
@@ -629,16 +647,16 @@
       recordKeyField: key
       producer: natViolClearThen
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Violent weighted clearance rate, 2018, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Violent weighted clearance rate, 2018, percent."
 
 - name: CaCmaIncome
-  description: "Median total income of census families, T1FF 2023 — one row per CMA from the national one-call fetch, via LISTS_INCOME from CaCmaSet; rows carry the WDS vectorId, mapped to names in the predictor views. The income axis of the crime-prediction battery."
+  description: "One CMA's row, identified by its WDS `vector`: Median total income of census families, T1FF 2023 — one row per CMA from the national one-call fetch, via LISTS_INCOME from CaCmaSet; rows carry the WDS vectorId, mapped to names in the predictor views. The income axis of the crime-prediction battery."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_INCOME
@@ -646,16 +664,16 @@
       recordKeyField: key
       producer: natFamilyIncome
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Median total income of census families, T1FF 2023, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Median total income of census families, 2023, dollars."
 
 - name: CaCmaUnemployment
-  description: "Unemployment rate — LFS 3-month moving average, seasonally adjusted, June 2026 — one row per CMA from the national one-call fetch, via LISTS_UNEMPLOYMENT from CaCmaSet; rows carry the WDS vectorId, mapped to names in the predictor views. The labour axis of the crime-prediction battery."
+  description: "One CMA's row, identified by its WDS `vector`: Unemployment rate — LFS 3-month moving average, seasonally adjusted, June 2026 — one row per CMA from the national one-call fetch, via LISTS_UNEMPLOYMENT from CaCmaSet; rows carry the WDS vectorId, mapped to names in the predictor views. The labour axis of the crime-prediction battery."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_UNEMPLOYMENT
@@ -663,16 +681,16 @@
       recordKeyField: key
       producer: natUnemployment
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Unemployment rate, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Unemployment rate, percent, 3-month moving average, seasonally adjusted."
 
 - name: CaCmaYouthPop
-  description: "Residents aged 20-24, July 1 2025 estimate — one row per CMA from the national one-call fetch, via LISTS_YOUTH_POP from CaCmaSet. Same cube and vintage as CaCmaPop2025, so dividing the two gives the 20-24 SHARE — criminology's age-crime curve axis — with no vintage mismatch. Rows carry the WDS vectorId, mapped to names in the predictor views."
+  description: "One CMA's row, identified by its WDS `vector`: Residents aged 20-24, July 1 2025 estimate — one row per CMA from the national one-call fetch, via LISTS_YOUTH_POP from CaCmaSet. Same cube and vintage as CaCmaPop2025, so dividing the two gives the 20-24 SHARE — criminology's age-crime curve axis — with no vintage mismatch. Rows carry the WDS vectorId, mapped to names in the predictor views."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_YOUTH_POP
@@ -680,16 +698,16 @@
       recordKeyField: key
       producer: natYouthPop
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Residents aged 20-24, July 1 2025 estimate, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Residents aged 20-24, count, July 1 2025."
+      description: "Residents aged 20-24, July 1 2025, in units of persons."
 
 - name: CaCmaClearMid
-  description: "Weighted clearance rate, 2021 — the midpoint that turns the clearance-crime association into a CROSS-LAGGED test (early clearance change vs later severity change, and the reverse). One row per CMA from the national one-call fetch, via LISTS_CLEAR_MID from CaCmaSet."
+  description: "One CMA's row, identified by its WDS `vector`: Weighted clearance rate, 2021 — the midpoint that turns the clearance-crime association into a CROSS-LAGGED test (early clearance change vs later severity change, and the reverse). One row per CMA from the national one-call fetch, via LISTS_CLEAR_MID from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_CLEAR_MID
@@ -697,16 +715,16 @@
       recordKeyField: key
       producer: natClearMid
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Weighted clearance rate, 2021, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Weighted clearance rate, 2021, percent."
 
 - name: CaCmaIncomeThen
-  description: "Median total income of census families, T1FF 2018 — the PREVIOUS-period income vintage for the lagged crime model, via LISTS_INCOME_THEN from CaCmaSet."
+  description: "One CMA's median total income of census families, T1FF 2018, identified by its `vector` — the PREVIOUS-period income vintage for the lagged crime model, via LISTS_INCOME_THEN from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_INCOME_THEN
@@ -714,16 +732,16 @@
       recordKeyField: key
       producer: natFamilyIncomeThen
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Median total income of census families, T1FF 2018, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Median total income of census families, 2018, dollars."
 
 - name: CaCmaUnemploymentThen
-  description: "Unemployment rate, June 2019 (LFS 3-month moving average, seasonally adjusted) — deliberately pre-pandemic, the PREVIOUS-period labour vintage for the lagged crime model, via LISTS_UNEMPLOYMENT_THEN from CaCmaSet."
+  description: "One CMA's unemployment rate, June 2019, identified by its `vector` (LFS 3-month moving average, seasonally adjusted) — deliberately pre-pandemic, the PREVIOUS-period labour vintage for the lagged crime model, via LISTS_UNEMPLOYMENT_THEN from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_UNEMPLOYMENT_THEN
@@ -731,16 +749,16 @@
       recordKeyField: key
       producer: natUnemploymentThen
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Unemployment rate, June 2019, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
       description: "Unemployment rate, percent, June 2019."
 
 - name: CaCmaPop2018
-  description: "July-1 2018 population estimate — the base for EARLY growth (2018-2021) in the lagged crime model, via LISTS_POP_2018 from CaCmaSet. Same cube as CaCmaPop2021/CaCmaPop2025."
+  description: "One CMA's July-1 2018 population estimate, identified by its `vector` — the base for EARLY growth (2018-2021) in the lagged crime model, via LISTS_POP_2018 from CaCmaSet. Same cube as CaCmaPop2021/CaCmaPop2025."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_POP_2018
@@ -748,16 +766,16 @@
       recordKeyField: key
       producer: natPopThen
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "July-1 2018 population estimate, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Population estimate, July 1 2018."
+      description: "Population estimate, July 1 2018, in units of persons."
 
 - name: CaCmaYouthPopMid
-  description: "Residents aged 20-24, July 1 2021 — pairs with CaCmaPop2021 for the PREVIOUS-period 20-24 share in the lagged crime model, via LISTS_YOUTH_POP_MID from CaCmaSet."
+  description: "One CMA's residents aged 20-24, July 1 2021, identified by its `vector` — pairs with CaCmaPop2021 for the PREVIOUS-period 20-24 share in the lagged crime model, via LISTS_YOUTH_POP_MID from CaCmaSet."
   virtualJoins:
     - anchorLabel: CaCmaSet
       relationship: LISTS_YOUTH_POP_MID
@@ -765,11 +783,11 @@
       recordKeyField: key
       producer: natYouthPopMid
       maxAnchors: 1
-      description: "Every CMA in one call."
+      description: "Residents aged 20-24, July 1 2021, for every CMA in ONE StatCan call: one row per series, keyed by its WDS `vector`, which joins it to the same CMA in the other years. Cached a week."
   properties:
     key: "The anchor set literal — the join link."
-    vector: { type: string, description: "The WDS vector id — the national join/name key." }
+    vector: { type: string, metadata: { identity: "true" }, description: "The WDS vector id — the national join/name key. Identity: one row per series in the national read." }
     value:
       type: number
-      description: "Residents aged 20-24, count, July 1 2021."
+      description: "Residents aged 20-24, July 1 2021, in units of persons."
 

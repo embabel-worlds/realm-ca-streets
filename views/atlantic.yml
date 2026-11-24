@@ -19,7 +19,7 @@
 # (embabel/me#1166, #1167).
 
 - name: AtlanticAffordability
-  description: How many years of local income buys a home, at every watched place in BOTH countries — Canadian census dwelling value over household income beside UK average sale price over median full-time pay, one dimensionless ladder. The basis column names each side's registers — the UK figure divides by an individual's pay, the Canadian by a household's, so a UK place carries a structural handicap of roughly the second-earner — read gaps of a year or two as noise, gaps of five as geography.
+  description: "How many years of local income buys a home. At every watched place in BOTH countries — Canadian census dwelling value over household income beside UK average sale price over median full-time pay, one dimensionless ladder. The basis column names each side's registers — the UK figure divides by an individual's pay, the Canadian by a household's, so a UK place carries a structural handicap of roughly the second-earner — read gaps of a year or two as noise, gaps of five as geography. Only watched places with both figures; never a national average."
   cypher: |
     MATCH (p:UkPlace)-[:HAS_HOUSE_PRICES]->(h:HousePriceMonth) WHERE p.districtSlug = h.key
     WITH p, h ORDER BY h.month DESC
@@ -37,7 +37,7 @@
     ORDER BY yearsOfIncome DESC
 
 - name: AtlanticCrimeGeography
-  description: Is crime more geographically unequal across Britain or across Canada — every England-and-Wales district's total crime rate (ONS Community Safety Partnership table, ~300 districts) and every Canadian CMA's Crime Severity Index (StatCan, 41 CMAs) reduced to each country's dimensionless spread — count, mean, coefficient of variation, extremes. Needs NO watched places — both sides ride literal-seeded national anchors. The metrics differ (a per-1,000 rate vs a severity index) so ONLY the dimensionless columns compare — never the means. UK granularity is finer (301 areas vs 41), which mechanically widens spread — say so when quoting. City of London is excluded (its suppressed cell reads as a false near-zero); the UK maximum that remains is Westminster, whose rate is inflated by daytime population — crimes counted where they happen, residents where they live — so quote the CV, not the max-over-min, as the headline spread.
+  description: "Is crime more geographically unequal across Britain or across Canada. Every England-and-Wales district's total crime rate (ONS Community Safety Partnership table, ~300 districts) and every Canadian CMA's Crime Severity Index (StatCan, 41 CMAs) reduced to each country's dimensionless spread — count, mean, coefficient of variation, extremes. Needs NO watched places — both sides ride literal-seeded national anchors. The metrics differ (a per-1,000 rate vs a severity index) so ONLY the dimensionless columns compare — never the means. UK granularity is finer (301 areas vs 41), which mechanically widens spread — say so when quoting. City of London is excluded (its suppressed cell reads as a false near-zero); the UK maximum that remains is Westminster, whose rate is inflated by daytime population — crimes counted where they happen, residents where they live — so quote the CV, not the max-over-min, as the headline spread."
   cypher: |
     MATCH (s:CaCmaSet {set:'canada'})-[:LISTS_CSI_NOW]->(k:CaCmaCsiNow)
     WITH collect(toFloat(k.csi)) AS ca
@@ -58,7 +58,7 @@
     ORDER BY spreadCvPct DESC
 
 - name: AtlanticImpunity
-  description: The share of reported crime where nobody is held to account, on both sides of the Atlantic — each watched UK place's latest-month street crimes already closed with no suspect identified (data.police.uk outcomes, within one mile), beside the share of Canadian crime NOT cleared in 2025 (100 minus the severity-weighted clearance rate, all 41 CMAs averaged). The registers measure differently — the UK figure is one month of street incidents and EXCLUDES cases still under investigation, the Canadian figure is a full-year weighted national mean — so quote each with its metric column, never as one league table. The Canadian mean of roughly 62 percent unsolved is the national context TheImpunityIndex ranks CMA by CMA.
+  description: "The share of reported crime where nobody is held to account. On both sides of the Atlantic — each watched UK place's latest-month street crimes already closed with no suspect identified (data.police.uk outcomes, within one mile), beside the share of Canadian crime NOT cleared in 2025 (100 minus the severity-weighted clearance rate, all 41 CMAs averaged). The registers measure differently — the UK figure is one month of street incidents and EXCLUDES cases still under investigation, the Canadian figure is a full-year weighted national mean — so quote each with its metric column, never as one league table. The Canadian mean of roughly 62 percent unsolved is the national context TheImpunityIndex ranks CMA by CMA."
   cypher: |
     MATCH (p:UkPlace)-[:HAS_CRIME]->(ci:CrimeIncident)
     WITH p.name AS place, count(ci) AS n,
@@ -81,7 +81,7 @@
     ORDER BY r.country
 
 - name: WhereCrimeConcentrates
-  description: How few streets carry half of each watched UK place's crime — the Pareto measurement of crime concentration, from data.police.uk street-level incidents (latest month, within one mile). A small pctOfStreets means crime is a places problem, not a people problem — enforcement can stand on twenty corners. This measurement is structurally IMPOSSIBLE in Canada — no national street-level crime register exists (the realm's Deliberately-not-here list) — which is itself the Atlantic finding — Britain can see crime concentration and Canada cannot. Street names are anonymised localities, and a mile circle in a dense city returns more streets than a town — compare the percentage, not the counts.
+  description: "How few streets carry half of each watched UK place's crime. The Pareto measurement of crime concentration, from data.police.uk street-level incidents (latest month, within one mile). A small pctOfStreets means crime is a places problem, not a people problem — enforcement can stand on twenty corners. This measurement is structurally IMPOSSIBLE in Canada — no national street-level crime register exists (the realm's Deliberately-not-here list) — which is itself the Atlantic finding — Britain can see crime concentration and Canada cannot. Street names are anonymised localities, and a mile circle in a dense city returns more streets than a town — compare the percentage, not the counts."
   cypher: |
     MATCH (p:UkPlace)-[:HAS_CRIME]->(ci:CrimeIncident)
     WITH p.name AS place, ci.street AS street, count(*) AS c ORDER BY c DESC

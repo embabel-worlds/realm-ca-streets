@@ -14,7 +14,7 @@
 # paint. Alert counts come from AlertsAtMyMPs, which owns that cost.
 
 - name: CaPlaceDossier
-  description: The FAST whole-picture row per watched Canadian place — coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value, worst current AQHI nearby, and current temperature and conditions (English and French). Deliberately excludes every StatCan-vector series (unemployment, crime severity, housing index, gas, population estimates — run StatcanAtMyPlaces) and the alert join (run AlertsAtMyMPs) — those sources are slower or rate-limited and must never sit on the first paint.
+  description: "The FAST whole-picture row per watched Canadian place. Coordinates for mapping, riding and sitting MP with party, photo, email and gender, Census 2021 population, median age, median household income, median dwelling value, worst current AQHI nearby, and current temperature and conditions (English and French). Deliberately excludes every StatCan-vector series (unemployment, crime severity, housing index, gas, population estimates — run StatcanAtMyPlaces) and the alert join (run AlertsAtMyMPs) — those sources are slower or rate-limited and must never sit on the first paint."
   params:
     limit:
       type: int
@@ -48,7 +48,7 @@
     ORDER BY place LIMIT $limit
 
 - name: WhoRepresentsMe
-  description: EVERY elected representative at each watched place's postal code — MP, MPP/MLA/MNA, mayor and councillors, one row each, federal first. The combined 'who represents this address' record no single level of government publishes. Party is often empty at municipal level (non-partisan councils), and a missing councillor is Represent coverage, not a vacancy. A place added by NAME has no postal code and no rows here.
+  description: "EVERY elected representative at each watched place's postal code. MP, MPP/MLA/MNA, mayor and councillors, one row each, federal first. The combined 'who represents this address' record no single level of government publishes. Party is often empty at municipal level (non-partisan councils), and a missing councillor is Represent coverage, not a vacancy. A place added by NAME has no postal code and no rows here."
   params:
     limit:
       type: int
@@ -65,7 +65,7 @@
     LIMIT $limit
 
 - name: SeatsAtMyPlaces
-  description: The federal riding and sitting MP for each watched place — name, party, email and official photo URL, straight from the House of Commons record via Represent.
+  description: "The federal riding and sitting MP for each watched place. Name, party, email and official photo URL, straight from the House of Commons record via Represent. Watched places only; the sitting MP, not past ones."
   params:
     limit:
       type: int
@@ -78,7 +78,7 @@
     ORDER BY place LIMIT $limit
 
 - name: StatcanAtMyPlaces
-  description: Every StatCan-vector figure per watched place in one BACKGROUND row — current unemployment (LFS, latest month, CMA/province), Crime Severity Index (annual), New Housing Price Index (latest month), average gas price (latest month), and the July-1 population estimate — each with the month/year and geography it describes. This view owns the rate-limited StatCan fan-out so CaPlaceDossier stays fast; expect occasional PRODUCER_ERROR warnings while statcan.gc.ca is throttling (HTTP 430) — the figures fill in as caches warm and then hold for a day (monthly series) or a week (annual).
+  description: "Every StatCan-vector figure per watched place in one BACKGROUND row. Current unemployment (LFS, latest month, CMA/province), Crime Severity Index (annual), New Housing Price Index (latest month), average gas price (latest month), and the July-1 population estimate — each with the month/year and geography it describes. This view owns the rate-limited StatCan fan-out so CaPlaceDossier stays fast; expect occasional PRODUCER_ERROR warnings while statcan.gc.ca is throttling (HTTP 430) — the figures fill in as caches warm and then hold for a day (monthly series) or a week (annual)."
   params:
     limit:
       type: int
@@ -112,7 +112,7 @@
 # ── The cross-source views — questions no single register answers ────────────
 
 - name: CaIncomeByParty
-  description: Census 2021 median household income of watched municipalities, grouped by the party of each place's sitting MP — 'what does a Liberal place earn vs a Conservative one', from Statistics Canada and the House of Commons, joined at your places. Averages of MUNICIPAL medians over the watchlist, not a national estimate — the description says whose places these are. (Named CaIncomeByParty because realm-uk-streets already owns IncomeByParty.)
+  description: "Census 2021 median household income of watched municipalities. Grouped by the party of each place's sitting MP — 'what does a Liberal place earn vs a Conservative one', from Statistics Canada and the House of Commons, joined at your places. Averages of MUNICIPAL medians over the watchlist, not a national estimate — the description says whose places these are. (Named CaIncomeByParty because realm-uk-streets already owns IncomeByParty.)"
   params:
     limit:
       type: int
@@ -129,7 +129,7 @@
     ORDER BY avgMedianHouseholdIncome DESC LIMIT $limit
 
 - name: PartyLedger
-  description: The full census ledger by MP party across watched places — average median household income, average median dwelling value, average CURRENT unemployment rate (LFS, latest month, CMA level) and average median age per party. StatCan's numbers under Parliament's colours; averages of municipal medians over YOUR watchlist.
+  description: "The full census ledger by MP party across watched places. Average median household income, average median dwelling value, average CURRENT unemployment rate (LFS, latest month, CMA level) and average median age per party. StatCan's numbers under Parliament's colours; averages of municipal medians over YOUR watchlist. Watched places only, so not a national verdict on any party."
   params:
     limit:
       type: int
@@ -155,7 +155,7 @@
     ORDER BY avgMedianHouseholdIncome DESC LIMIT $limit
 
 - name: SeatsAndFortunes
-  description: Each watched place's riding and sitting MP beside the municipality's census fortunes — household income, dwelling value and the affordability ratio — ranked by income. One row per place; the riding-to-census join neither Parliament nor StatCan publishes.
+  description: "Each watched place's riding and MP beside its census income and housing. Each watched place's riding and sitting MP beside the municipality's census fortunes — household income, dwelling value and the affordability ratio — ranked by income. One row per place; the riding-to-census join neither Parliament nor StatCan publishes. Watched places only; census figures describe the whole municipality, not the riding."
   params:
     limit:
       type: int
@@ -174,7 +174,7 @@
     ORDER BY income IS NULL, income DESC LIMIT $limit
 
 - name: SplitRepresentation
-  description: Watched places whose FEDERAL and PROVINCIAL representatives come from different political families — MP party beside MPP/MLA/MNA/MHA party, with `aligned` computed on shared party stems (Liberal, Conservative, New Democratic, Green). Provincial parties are distinct organisations from their federal namesakes — alignment here means the NAME family matches, nothing more; Québec's CAQ/PQ never 'align' by this rule and that is honest.
+  description: "Watched places whose federal and provincial reps differ in party family. Watched places whose FEDERAL and PROVINCIAL representatives come from different political families — MP party beside MPP/MLA/MNA/MHA party, with `aligned` computed on shared party stems (Liberal, Conservative, New Democratic, Green). Provincial parties are distinct organisations from their federal namesakes — alignment here means the NAME family matches, nothing more; Québec's CAQ/PQ never 'align' by this rule and that is honest."
   params:
     limit:
       type: int
@@ -191,7 +191,7 @@
     ORDER BY aligned, place LIMIT $limit
 
 - name: AffordabilityGap
-  description: Years of median household income needed to buy the median dwelling in each watched municipality — Census dwelling value over census household income, ranked least affordable first. Both figures are municipal medians (owner-estimated values, 2020 incomes); the RATIO is the comparable number, and no register publishes it.
+  description: "Years of median household income to buy the median dwelling, per place. Years of median household income needed to buy the median dwelling in each watched municipality — Census dwelling value over census household income, ranked least affordable first. Both figures are municipal medians (owner-estimated values, 2020 incomes); the RATIO is the comparable number, and no register publishes it."
   params:
     limit:
       type: int
@@ -211,7 +211,7 @@
     LIMIT $limit
 
 - name: CensusLeague
-  description: Every census measure for every watched place in one comparable table — population, median age, median household income, median dwelling value, the CURRENT unemployment rate (StatCan LFS, latest month, CMA/province level) and the affordability ratio, ranked by income. Census figures are 2021 municipal values (incomes 2020); unemployment alone is live monthly data.
+  description: "Every census measure for every watched place in one comparable table. Population, median age, median household income, median dwelling value, the CURRENT unemployment rate (StatCan LFS, latest month, CMA/province level) and the affordability ratio, ranked by income. Census figures are 2021 municipal values (incomes 2020); unemployment alone is live monthly data. Watched places only; Census 2021 figures, not today's."
   params:
     limit:
       type: int
@@ -239,7 +239,7 @@
     ORDER BY income IS NULL, income DESC LIMIT $limit
 
 - name: AirVsIncome
-  description: The worst current AQHI near each watched place beside the municipality's median household income — 'do richer places breathe easier air right now', Environment Canada joined to Statistics Canada. AQHI is a live snapshot, not an annual average; a null means no monitoring station within the wide box, a coverage fact (the federal AQHI network does not include Québec).
+  description: "Worst current AQHI near each watched place beside its median income. The worst current AQHI near each watched place beside the municipality's median household income — 'do richer places breathe easier air right now', Environment Canada joined to Statistics Canada. AQHI is a live snapshot, not an annual average; a null means no monitoring station within the wide box, a coverage fact (the federal AQHI network does not include Québec)."
   params:
     limit:
       type: int
@@ -255,7 +255,7 @@
     ORDER BY worstAqhi IS NULL, worstAqhi DESC LIMIT $limit
 
 - name: AlertsAtMyMPs
-  description: Active Environment Canada weather alerts at watched places, joined to the riding and sitting MP — 'which MP's constituents are under an official alert right now'. Alert names in both official languages. A live join of Environment Canada to the House of Commons that neither publishes. Every place returns at least one row (null alert = none there), so an app can derive per-place counts. This view owns the short-TTL alert fan-out — expect the occasional slower cold read.
+  description: "Active Environment Canada weather alerts at watched places. Joined to the riding and sitting MP — 'which MP's constituents are under an official alert right now'. Alert names in both official languages. A live join of Environment Canada to the House of Commons that neither publishes. Every place returns at least one row (null alert = none there), so an app can derive per-place counts. This view owns the short-TTL alert fan-out — expect the occasional slower cold read. Only ACTIVE alerts at watched places; empty is the normal, good answer."
   params:
     limit:
       type: int
@@ -275,7 +275,7 @@
     LIMIT $limit
 
 - name: CaCrimeVsIncome
-  description: Each watched place's police-reported Crime Severity Index (latest year, CMA level, Canada-2006=100 — directly comparable across areas) beside the municipality's median household income and the sitting MP's party — StatCan's crime and income series joined to the House of Commons record at your places, ranked most-severe first. CSI is annual (latest 2025); income is Census 2020.
+  description: "Each watched place's Crime Severity Index beside its median income. Each watched place's police-reported Crime Severity Index (latest year, CMA level, Canada-2006=100 — directly comparable across areas) beside the municipality's median household income and the sitting MP's party — StatCan's crime and income series joined to the House of Commons record at your places, ranked most-severe first. CSI is annual (latest 2025); income is Census 2020."
   params:
     limit:
       type: int
@@ -295,7 +295,7 @@
     ORDER BY crimeSeverityIndex IS NULL, crimeSeverityIndex DESC LIMIT $limit
 
 - name: CaCrimeByParty
-  description: Average Crime Severity Index (latest year per place, CMA level) grouped by the party of each place's sitting MP — 'is crime more severe where party X holds the seat', across YOUR watchlist. An association over your places, never a causal claim about any member.
+  description: "Average Crime Severity Index by the party of each place's sitting MP. Average Crime Severity Index (latest year per place, CMA level) grouped by the party of each place's sitting MP — 'is crime more severe where party X holds the seat', across YOUR watchlist. An association over your places, never a causal claim about any member."
   params:
     limit:
       type: int
@@ -315,7 +315,7 @@
     ORDER BY avgCrimeSeverityIndex DESC LIMIT $limit
 
 - name: HousingHeat
-  description: Where new-home prices are moving fastest — each watched place's New Housing Price Index (latest month) with its year-over-year percent change, beside the census median dwelling value and the sitting MP's party, hottest first. The index level is StatCan's; the year-over-year arithmetic is computed in this view from the same series.
+  description: "Where new-home prices are moving fastest. Each watched place's New Housing Price Index (latest month) with its year-over-year percent change, beside the census median dwelling value and the sitting MP's party, hottest first. The index level is StatCan's; the year-over-year arithmetic is computed in this view from the same series."
   params:
     limit:
       type: int
@@ -339,7 +339,7 @@
     ORDER BY yoyPct IS NULL, yoyPct DESC LIMIT $limit
 
 - name: GasAtMyPlaces
-  description: The latest monthly average pump price (regular unleaded, self-serve, cents per litre) at each watched place's city, cheapest first — StatCan table 18-10-0001. Coverage is 18 large centres; a missing place has no covered city nearby, not free gas.
+  description: "The latest regular-gasoline pump price at each watched place's city. The latest monthly average pump price (regular unleaded, self-serve, cents per litre) at each watched place's city, cheapest first — StatCan table 18-10-0001. Coverage is 18 large centres; a missing place has no covered city nearby, not free gas."
   params:
     limit:
       type: int
@@ -354,7 +354,7 @@
     ORDER BY centsPerLitre ASC LIMIT $limit
 
 - name: BoomtownLedger
-  description: The growth-versus-supply ledger per watched CMA — people ADDED (July-1 population estimates, 2021 to latest) against housing UNITS STARTED over the same window (CMHC), as a people-per-new-home ratio, beside the New Housing Price Index year-over-year and the sitting MP's party. Above ~2.5 people per unit (the average household), building is falling behind growth. The ratio is computed here; every input is the publisher's own figure.
+  description: "The growth-versus-supply ledger per watched CMA. People ADDED (July-1 population estimates, 2021 to latest) against housing UNITS STARTED over the same window (CMHC), as a people-per-new-home ratio, beside the New Housing Price Index year-over-year and the sitting MP's party. Above ~2.5 people per unit (the average household), building is falling behind growth. The ratio is computed here; every input is the publisher's own figure. Watched CMAs only, not every CMA."
   params:
     limit:
       type: int
@@ -390,7 +390,7 @@
     ORDER BY peoplePerNewHome DESC LIMIT $limit
 
 - name: WhoGotSafer
-  description: Each watched CMA's police-reported Crime Severity Index at the start and end of the stored series (2018 to latest year) with the percent change — who actually got safer, on the publisher's own nationally comparable index (Canada 2006 = 100). A change in POLICE-REPORTED severity, which reflects reporting and enforcement as well as crime; say so.
+  description: "Each watched CMA's Crime Severity Index change, 2018 to the latest year. Each watched CMA's police-reported Crime Severity Index at the start and end of the stored series (2018 to latest year) with the percent change — who actually got safer, on the publisher's own nationally comparable index (Canada 2006 = 100). A change in POLICE-REPORTED severity, which reflects reporting and enforcement as well as crime; say so. Watched CMAs only; the index, not counts of crimes."
   params:
     limit:
       type: int
@@ -409,7 +409,7 @@
     ORDER BY changePct ASC LIMIT $limit
 
 - name: AffordabilityDrift
-  description: How affordability has MOVED since census day, per watched CMA — the census median dwelling value (owner-estimated, May 2021) carried forward by the New Housing Price Index (May 2021 to latest month) into an IMPLIED current value, divided by the census median household income into implied years-of-income now, beside the same ratio at census time. The census freezes values in 2021 and the NHPI tracks only NEW homes — so this is an ESTIMATE, computed here, labeled as such; every input is the publisher's own figure. No agency publishes a current affordability number at this level.
+  description: "How affordability has MOVED since census day, per watched CMA. The census median dwelling value (owner-estimated, May 2021) carried forward by the New Housing Price Index (May 2021 to latest month) into an IMPLIED current value, divided by the census median household income into implied years-of-income now, beside the same ratio at census time. The census freezes values in 2021 and the NHPI tracks only NEW homes — so this is an ESTIMATE, computed here, labeled as such; every input is the publisher's own figure. No agency publishes a current affordability number at this level."
   params:
     limit:
       type: int
@@ -438,7 +438,7 @@
     ORDER BY newHomePriceMovePct DESC LIMIT $limit
 
 - name: CanadaCrimeOutliers
-  description: EVERY Canadian census metropolitan area's Crime Severity Index — latest year beside 2018, percent change, and each CMA's distance from the national mean in standard deviations (computed in-view over all ~40 CMAs) — flagged OUTLIER beyond 1.5 sigma on level or on change. Needs NO watched places; the whole country hangs off a literal-seeded anchor and two cached one-call fetches. Police-REPORTED severity — reporting and enforcement move it as well as crime.
+  description: "EVERY Canadian census metropolitan area's Crime Severity Index. Latest year beside 2018, percent change, and each CMA's distance from the national mean in standard deviations (computed in-view over all ~40 CMAs) — flagged OUTLIER beyond 1.5 sigma on level or on change. Needs NO watched places; the whole country hangs off a literal-seeded anchor and two cached one-call fetches. Police-REPORTED severity — reporting and enforcement move it as well as crime. CMAs only, not municipalities inside them."
   params:
     limit:
       type: int
@@ -512,7 +512,7 @@
     LIMIT $limit
 
 - name: CanadaGrowthOutliers
-  description: EVERY Canadian census metropolitan area's population growth, July 2021 to July 2025 (StatCan estimates, whole CMA), with each CMA's distance from the national mean growth in standard deviations computed in-view — flagged OUTLIER beyond 1.5 sigma either way. Needs no watched places; two cached one-call national fetches off the literal-seeded anchor.
+  description: "EVERY Canadian census metropolitan area's population growth. July 2021 to July 2025 (StatCan estimates, whole CMA), with each CMA's distance from the national mean growth in standard deviations computed in-view — flagged OUTLIER beyond 1.5 sigma either way. Needs no watched places; two cached one-call national fetches off the literal-seeded anchor. CMAs only, not municipalities inside them."
   params:
     limit:
       type: int
@@ -580,7 +580,7 @@
     ORDER BY r.growth DESC LIMIT $limit
 
 - name: CanadaCrimeMomentum
-  description: The momentum test, every CMA — Crime Severity Index change 2018 to 2021 beside change 2021 to 2025, on StatCan's nationally comparable index. If the two track, crime trends PERSIST and any claimed predictor must beat simple momentum; where they diverge, something changed mid-period and that CMA is the story. Exploratory association over ~35 areas, police-reported severity.
+  description: "Crime Severity Index change 2018-2021 beside 2021-2025, every CMA. The momentum test, every CMA — Crime Severity Index change 2018 to 2021 beside change 2021 to 2025, on StatCan's nationally comparable index. If the two track, crime trends PERSIST and any claimed predictor must beat simple momentum; where they diverge, something changed mid-period and that CMA is the story. Exploratory association over ~35 areas, police-reported severity. CMAs only; it does not say why a trend changed."
   params:
     limit:
       type: int
@@ -644,7 +644,7 @@
     ORDER BY changeSecondHalfPct DESC LIMIT $limit
 
 - name: CanadaCrimeMomentumStat
-  description: The momentum question answered IN the engine — correlate() over every CMA's first-half (2018-21) versus second-half (2021-25) severity change, returning r with its confidence interval and a detectability verdict. The companion row view is CanadaCrimeMomentum; this is the one-row statistical answer.
+  description: "The momentum question answered IN the engine. Correlate() over every CMA's first-half (2018-21) versus second-half (2021-25) severity change, returning r with its confidence interval and a detectability verdict. The companion row view is CanadaCrimeMomentum; this is the one-row statistical answer."
   cypher: |
     MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_THEN]->(o:CaCmaCsiThen)
     MATCH (u)-[:LISTS_CSI_MID]->(m:CaCmaCsiMid) WHERE m.vector = o.vector
@@ -755,7 +755,7 @@
            count(*) AS cmas
 
 - name: CanadaCrimeFactorBattery
-  description: The crime-factor battery, computed IN the engine over every CMA — candidate associations with 2018-25 severity change, each as correlate() with r, confidence interval and a detectability verdict (2018 clearance rate, clearance-rate change, 2018 violent share, population growth), the youth-adult severity correlation, and a multivariate regress() of severity change on growth, 2018 level, 2018 clearance and clearance change with the CMAs most above and below prediction named. Exploratory association over ~30 areas with multiple comparisons — expect one nominally-detectable r by chance; police-reported severity throughout. Structural and policing factors only, by design.
+  description: "The crime-factor battery, computed IN the engine over every CMA. Candidate associations with 2018-25 severity change, each as correlate() with r, confidence interval and a detectability verdict (2018 clearance rate, clearance-rate change, 2018 violent share, population growth), the youth-adult severity correlation, and a multivariate regress() of severity change on growth, 2018 level, 2018 clearance and clearance change with the CMAs most above and below prediction named. Exploratory association over ~30 areas with multiple comparisons — expect one nominally-detectable r by chance; police-reported severity throughout. Structural and policing factors only, by design."
   cypher: |
     MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_THEN]->(o:CaCmaCsiThen)
     MATCH (u)-[:LISTS_CSI_NOW]->(n:CaCmaCsiNow) WHERE n.vector = o.vector
@@ -1046,7 +1046,7 @@
            count(*) AS cmas
 
 - name: TheImpunityIndex
-  description: Who solves crime in Canada, and where solving is collapsing — every CMA's weighted clearance rate (share of reported crime solved, seriousness-weighted, StatCan 35-10-0026) in 2018 and 2025, the change in points, and the same period's severity change beside it, ranked by clearance deterioration. The pairing no register publishes. Direction is genuinely ambiguous — rising crime can swamp capacity, or falling clearance can breed impunity — and the view claims association only.
+  description: "Who solves crime in Canada, and where solving is collapsing. Every CMA's weighted clearance rate (share of reported crime solved, seriousness-weighted, StatCan 35-10-0026) in 2018 and 2025, the change in points, and the same period's severity change beside it, ranked by clearance deterioration. The pairing no register publishes. Direction is genuinely ambiguous — rising crime can swamp capacity, or falling clearance can breed impunity — and the view claims association only."
   params:
     limit:
       type: int
@@ -1197,7 +1197,7 @@
     ORDER BY clearanceChangePts ASC LIMIT $limit
 
 - name: ViolentImpunityCheck
-  description: The fact-check behind the Impunity Index lede — every CMA's VIOLENT weighted clearance rate in 2018 and 2025 with the change in points, plus the engine's correlation between violent-clearance change and total clearance change. If a city's overall collapse holds for violent crime, the story hardens; if violent solving held up while property-crime clearance fell, the story changes. Same caveats as TheImpunityIndex.
+  description: "The fact-check behind the Impunity Index lede. Every CMA's VIOLENT weighted clearance rate in 2018 and 2025 with the change in points, plus the engine's correlation between violent-clearance change and total clearance change. If a city's overall collapse holds for violent crime, the story hardens; if violent solving held up while property-crime clearance fell, the story changes. Same caveats as TheImpunityIndex. Published rates only; it does not explain them."
   params:
     limit:
       type: int
@@ -1257,7 +1257,7 @@
     ORDER BY violentClearanceChangePts ASC LIMIT $limit
 
 - name: WhereViolenceGoesUnsolved
-  description: The provincial map of violent impunity — every province's average VIOLENT weighted clearance rate across its CMAs, 2018 beside 2025 with the change in points and the worst-moving CMA named. Born from the ViolentImpunityCheck fact-check, which found the four steepest violent-clearance collapses in the country include every British Columbia CMA (Kelowna nearly halved, 59.8 to 28.7). Small provinces average few CMAs — the n column says how few; a one-CMA province IS that city.
+  description: "The provincial map of violent impunity. Every province's average VIOLENT weighted clearance rate across its CMAs, 2018 beside 2025 with the change in points and the worst-moving CMA named. Born from the ViolentImpunityCheck fact-check, which found the four steepest violent-clearance collapses in the country include every British Columbia CMA (Kelowna nearly halved, 59.8 to 28.7). Small provinces average few CMAs — the n column says how few; a one-CMA province IS that city. Provinces only, not cities."
   cypher: |
     MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_VIOLCLEAR_THEN]->(vt:CaCmaViolClearThen)
     MATCH (u)-[:LISTS_VIOLCLEAR_NOW]->(vn:CaCmaViolClearNow) WHERE vn.vector = vt.vector
@@ -1324,7 +1324,7 @@
 # ── Single-source live views ─────────────────────────────────────────────────
 
 - name: MorningCanada
-  description: The live face of every watched place at the same instant, coast to coast — current temperature and conditions (both official languages), worst AQHI with its risk band, and the count of active alerts. The one-view morning briefing; run it and read down.
+  description: "The live face of every watched place at the same instant, coast to coast. Current temperature and conditions (both official languages), worst AQHI with its risk band, and the count of active alerts. The one-view morning briefing; run it and read down. Watched places only, at this instant; not a history."
   params:
     limit:
       type: int
@@ -1348,7 +1348,7 @@
     ORDER BY temperatureC IS NULL, temperatureC DESC LIMIT $limit
 
 - name: AirQualityNow
-  description: The latest Air Quality Health Index at every monitoring station near watched places, worst first, with the official risk band and the station's name in both official languages. 1-3 low, 4-6 moderate, 7-10 high, 10+ very high. No station within the wide box means no row — coverage, not clean air (the federal AQHI network does not include Québec).
+  description: "The latest AQHI at every station near watched places, worst first. The latest Air Quality Health Index at every monitoring station near watched places, worst first, with the official risk band and the station's name in both official languages. 1-3 low, 4-6 moderate, 7-10 high, 10+ very high. No station within the wide box means no row — coverage, not clean air (the federal AQHI network does not include Québec)."
   params:
     limit:
       type: int
@@ -1364,7 +1364,7 @@
     ORDER BY aqhi DESC LIMIT $limit
 
 - name: RiversNearMe
-  description: The LATEST reading from each river gauge near watched places — level in metres on the station's own datum, discharge where measured. Compare a station against itself over time, never one river's level against another's.
+  description: "The LATEST reading from each river gauge near watched places. Level in metres on the station's own datum, discharge where measured. Compare a station against itself over time, never one river's level against another's."
   params:
     limit:
       type: int
@@ -1380,7 +1380,7 @@
     ORDER BY place, station LIMIT $limit
 
 - name: WeatherAcrossMyPlaces
-  description: Current temperature, conditions (both official languages) and humidity at the weather.gc.ca city page nearest each watched place, with any active alert count — the same instant across the whole watchlist, coast to coast.
+  description: "Current weather at the city page nearest each watched place, now. Current temperature, conditions (both official languages) and humidity at the weather.gc.ca city page nearest each watched place, with any active alert count — the same instant across the whole watchlist, coast to coast. Current conditions only, not a forecast."
   params:
     limit:
       type: int
