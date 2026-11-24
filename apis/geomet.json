@@ -33,6 +33,8 @@
         "parameters": [
           { "name": "bbox", "in": "query", "required": true, "schema": { "type": "string" }, "description": "lonMin,latMin,lonMax,latMax" },
           { "name": "sortby", "in": "query", "required": false, "schema": { "type": "string" }, "description": "`-DATETIME` for newest first." },
+          { "name": "STATION_NUMBER", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Water Survey of Canada station number, e.g. 02HC003." },
+          { "name": "datetime", "in": "query", "required": false, "schema": { "type": "string" }, "description": "OGC API time filter: an instant or an interval, e.g. `2026-11-24T00:00:00Z/..` (open end)." },
           { "name": "limit", "in": "query", "required": false, "schema": { "type": "string" } },
           { "name": "f", "in": "query", "required": false, "schema": { "type": "string" } }
         ],
@@ -48,6 +50,7 @@
         "description": "`features[].properties` carries `alert_type` (warning/watch/statement/advisory), `alert_name_en`, `alert_name_fr`, `alert_text_en`, `alert_text_fr`, `publication_datetime` and `expiration_datetime`. Empty is the normal, good answer.",
         "parameters": [
           { "name": "bbox", "in": "query", "required": true, "schema": { "type": "string" }, "description": "lonMin,latMin,lonMax,latMax" },
+          { "name": "alert_type", "in": "query", "required": false, "schema": { "type": "string" }, "description": "warning, watch, advisory or statement." },
           { "name": "limit", "in": "query", "required": false, "schema": { "type": "string" } },
           { "name": "f", "in": "query", "required": false, "schema": { "type": "string" } }
         ],

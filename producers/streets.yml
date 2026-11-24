@@ -17,7 +17,9 @@
     email: email
     photo: photo_url
     gender: gender
-  cache: { kind: ttl, seconds: 604800 }
+  # One riding per point: nothing is left to filter at the source.
+  pushdown: []
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 86400 }
 
 # EVERY level of government at the postal code, one call: MP, MPP/MLA, mayor,
 # councillors. Keyed on the postal code (uppercase, no space) — a place added
@@ -43,7 +45,10 @@
     body: representative_set_name
     email: email
     photo: photo_url
-  cache: { kind: ttl, seconds: 604800 }
+  # Every representative at one postal code, a handful at most; Represent's postcode read takes
+  # no filter, so office or party is filtered in the graph.
+  pushdown: []
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 86400 }
 
 # ── The coordinate axis (GeoMet) ─────────────────────────────────────────────
 # GeoMet is bilingual at the source — every producer below projects the French
@@ -71,6 +76,9 @@
     stationFr: properties.location_name_fr
     aqhi: properties.aqhi
     observedAt: properties.observation_datetime
+  # GeoMet filters this collection by station (location_id), which no property here carries;
+  # the box and latest=true already make the read one row per nearby station.
+  pushdown: []
   cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
 
 # Recent river-gauge readings in the ~20 km box, newest first. Stations report
@@ -96,6 +104,12 @@
     discharge: properties.DISCHARGE
     at: properties.DATETIME
     province: properties.PROV_TERR_STATE_LOC
+  # Measured 2026-11-25 on GeoMet: STATION_NUMBER narrows a box's readings (379,787 → 7,570
+  # matched) and an open `datetime` interval narrows by time (→ 7,165). One gauge, or readings
+  # since a time, is then asked of the source instead of filtered out of the latest 30.
+  pushdown:
+    - { property: stationNumber, op: EQUALS, argPath: STATION_NUMBER, clause: "{value}", valuePattern: '^([0-9]{2}[A-Z]{2}[0-9]{3})$' }
+    - { property: at, op: GREATER_THAN_OR_EQUAL, argPath: datetime, clause: "{value}/..", valuePattern: '(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)' }
   cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
 
 # ACTIVE weather alerts touching the place's box. 30 minutes, not 10: the
@@ -122,6 +136,9 @@
     textFr: properties.alert_text_fr
     published: properties.publication_datetime
     expires: properties.expiration_datetime
+  # Measured 2026-11-25 on GeoMet: alert_type narrows the national feed (135 → 20 warnings).
+  pushdown:
+    - { property: alertType, op: EQUALS, argPath: alert_type, clause: "{value}", valuePattern: '^(warning|watch|advisory|statement)$' }
   cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
 
 # Current conditions at the nearest city page(s).
@@ -144,6 +161,8 @@
     conditionFr: properties.currentConditions.condition.fr
     humidity: properties.currentConditions.relativeHumidity.value.en
     updated: properties.lastUpdated
+  # A box and limit 3 already make this the nearest city pages; nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 1800, negativeTtlSeconds: 1800 }
 
 # ── The census (municipality) axis ───────────────────────────────────────────
@@ -169,7 +188,9 @@
   project:
     value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
-  cache: { kind: ttl, seconds: 604800 }
+  # One figure per DGUID: nothing is left to filter at the source.
+  pushdown: []
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 - name: censusMedianAgeV2
   kind: remote
@@ -183,7 +204,9 @@
   project:
     value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
-  cache: { kind: ttl, seconds: 604800 }
+  # One figure per DGUID: nothing is left to filter at the source.
+  pushdown: []
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 - name: censusHouseholdIncomeV2
   kind: remote
@@ -197,7 +220,9 @@
   project:
     value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
-  cache: { kind: ttl, seconds: 604800 }
+  # One figure per DGUID: nothing is left to filter at the source.
+  pushdown: []
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 - name: censusDwellingValueV2
   kind: remote
@@ -211,7 +236,9 @@
   project:
     value: "dataSets[0].series['0:0:0:0:0'].observations['0'][0]"
     area: structures.0.dimensions.series.1.values.0.name
-  cache: { kind: ttl, seconds: 604800 }
+  # One figure per DGUID: nothing is left to filter at the source.
+  pushdown: []
+  cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 # CURRENT unemployment — StatCan LFS by CMA (or province), monthly. Keyed on
 # the WDS vector id stored on the place. The static far-future end date is
@@ -232,6 +259,9 @@
   project:
     month: refPer
     rate: value
+  # The vector is the key and the reference-period window is fixed above (it bounds the series
+  # the views read); the WDS range call takes no other filter.
+  pushdown: []
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
 
 # ── The StatCan vector axis (same generic operation as LFS) ─────────────────
@@ -258,6 +288,9 @@
   project:
     year: refPer
     csi: value
+  # The vector is the key and the reference-period window is fixed above (it bounds the series
+  # the views read); the WDS range call takes no other filter.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 # New Housing Price Index by CMA — monthly. An index: the CHANGE is the story.
@@ -276,6 +309,9 @@
   project:
     month: refPer
     index: value
+  # The vector is the key and the reference-period window is fixed above (it bounds the series
+  # the views read); the WDS range call takes no other filter.
+  pushdown: []
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
 
 # Average retail price of regular unleaded (self-serve), cents/litre, monthly.
@@ -294,6 +330,9 @@
   project:
     month: refPer
     centsPerLitre: value
+  # The vector is the key and the reference-period window is fixed above (it bounds the series
+  # the views read); the WDS range call takes no other filter.
+  pushdown: []
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
 
 # Population estimates, July 1, by CMA/CA — annual, fresher than Census 2021.
@@ -312,6 +351,9 @@
   project:
     year: refPer
     population: value
+  # The vector is the key and the reference-period window is fixed above (it bounds the series
+  # the views read); the WDS range call takes no other filter.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 # Housing STARTS by CMA — CMHC via StatCan 34-10-0154, monthly, total units,
@@ -331,6 +373,9 @@
   project:
     month: refPer
     starts: value
+  # The vector is the key and the reference-period window is fixed above (it bounds the series
+  # the views read); the WDS range call takes no other filter.
+  pushdown: []
   cache: { kind: ttl, seconds: 86400, negativeTtlSeconds: 86400 }
 
 # ── The NATIONAL axis (the uk-streets UkDistricts pattern) ───────────────────
@@ -355,6 +400,9 @@
     vector: vectorId
     csi: vectorDataPoint.0.value
     year: vectorDataPoint.0.refPer
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 - name: nationalCsiThen
@@ -373,6 +421,9 @@
     vector: vectorId
     csi: vectorDataPoint.0.value
     year: vectorDataPoint.0.refPer
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 604800 }
 
 # National July-1 population estimates, every CMA in one call per year —
@@ -394,6 +445,9 @@
   project:
     vector: vectorId
     population: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natPopNow
@@ -411,6 +465,9 @@
   project:
     vector: vectorId
     population: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # 2021 CSI midpoint — completes the momentum test (does 2018-21 trend predict
@@ -430,6 +487,9 @@
   project:
     vector: vectorId
     csi: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # ── National crime-factor producers (same one-call pattern) ─────────────────
@@ -448,6 +508,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natViolentThen
@@ -465,6 +528,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natClearNow
@@ -482,6 +548,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natClearThen
@@ -499,6 +568,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natYouthNow
@@ -516,6 +588,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natViolClearNow
@@ -533,6 +608,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 - name: natViolClearThen
@@ -550,6 +628,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # ── National crime-PREDICTOR producers (same one-call pattern) ──────────────
@@ -574,6 +655,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # Unemployment rate by CMA — LFS 14-10-0459, 3-month moving average,
@@ -594,6 +678,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # Residents aged 20-24 by CMA — the same demographic-estimates cube the
@@ -614,6 +701,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # 2021 clearance midpoint — completes the CROSS-LAGGED test (does a clearance
@@ -634,6 +724,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # ── PREVIOUS-period predictor producers (the lagged model's axis) ────────────
@@ -656,6 +749,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # Unemployment rate, June 2019 — deliberately PRE-pandemic; 2020-21 rates measure lockdowns, not labour markets.
@@ -674,6 +770,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # July-1 2018 population — the base for early growth (2018-2021).
@@ -692,6 +791,9 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }
 
 # Residents aged 20-24, July 1 2021 — pairs with CaCmaPop2021 for the lagged share.
@@ -710,4 +812,7 @@
   project:
     vector: vectorId
     value: vectorDataPoint.0.value
+  # The WDS range call's only filters are the vectors and the reference-period window, and both
+  # are FIXED here: they are what makes this the national one-call read. Nothing a query says narrows it.
+  pushdown: []
   cache: { kind: ttl, seconds: 604800, negativeTtlSeconds: 600 }

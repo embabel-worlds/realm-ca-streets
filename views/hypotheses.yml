@@ -68,7 +68,7 @@
 # H2 — VIOLENCE TOOK OVER. Post-pandemic, severity recomposed toward violence:
 # violent severity rose even in cities whose total fell.
 - name: WhereViolenceTookOver
-  description: "Did Canadian crime turn more VIOLENT even where it shrank? Each CMA's violent-severity change 2018-2025 beside its total-severity change, the correlation between the two, and by name: the cities where the violent index ROSE while total severity FELL — the recomposition no single index shows. A strong positive correlation with an empty recomposition list kills the hypothesis (violence just tracks totals); a populated list is the story. ~35 CMAs with a 2018 baseline; police-reported severity throughout."
+  description: "Did Canadian crime turn more VIOLENT even where it shrank? Each CMA's violent-severity change 2018-2025 beside its total-severity change, the correlation between the two, and by name: the cities where the violent index ROSE while total severity FELL — the recomposition no single index shows. A strong positive correlation with an empty recomposition list kills the hypothesis (violence just tracks totals); a populated list is the story. ~35 CMAs with a 2018 baseline; police-reported severity throughout. CMA level only, not a neighbourhood."
   cypher: |
     MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_THEN]->(o:CaCmaCsiThen)
     MATCH (u)-[:LISTS_CSI_NOW]->(n:CaCmaCsiNow) WHERE n.vector = o.vector
@@ -539,7 +539,7 @@
 # falls as cities get BIGGER. Does size survive the clearance rate, or is the
 # big-city advantage just better-resourced solving?
 - name: TheBigCityParadox
-  description: "Canada's inversion of the urban-crime stereotype, tested: severity against population alone (the paradox: bigger reads SAFER on the index), a million-plus indicator for the sharpest form, and a fit of severity on size beside the clearance rate — if size survives, big cities are safer per capita even at their own clearance level (composition, guardianship, reporting); if it collapses, the metropolitan advantage is carried by solving. Severity is already per-capita-weighted by construction so this is not a denominator artifact — but it counts REPORTED crime, and big-city reporting propensity can differ. ~41 areas; association across areas, never causation."
+  description: "Canada's inversion of the urban-crime stereotype, tested. Severity against population alone (the paradox: bigger reads SAFER on the index), a million-plus indicator for the sharpest form, and a fit of severity on size beside the clearance rate — if size survives, big cities are safer per capita even at their own clearance level (composition, guardianship, reporting); if it collapses, the metropolitan advantage is carried by solving. Severity is already per-capita-weighted by construction so this is not a denominator artifact — but it counts REPORTED crime, and big-city reporting propensity can differ. ~41 areas; association across areas, never causation."
   cypher: |
     MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_CSI_NOW]->(n:CaCmaCsiNow)
     WITH u, CASE n.vector
@@ -704,7 +704,7 @@
 # is worst. ViolentImpunityCheck asks whether the two fell together; this asks
 # whether the GAP between them moved with the collapse.
 - name: TheTriageHypothesis
-  description: "Do police forces TRIAGE under collapse — protecting violent-case solving while property-crime clearance is let go? Each CMA's violent-clearance premium (violent weighted clearance minus overall weighted clearance) in 2018 and 2025, and the correlation between a CMA's overall-clearance change and the change in that premium: a detectable NEGATIVE r says the worse the overall collapse, the more the violent premium widened — triage. By name: the cities whose overall clearance fell five points or more while violent clearance fell less than half as far. One mechanical caveat the numbers cannot carry: the overall rate already CONTAINS the violent cases, so the premium understates the true violent-vs-nonviolent gap and the triage signal reads conservative. ~41 CMAs, StatCan 35-10-0026, association never causation."
+  description: "Do police forces TRIAGE under collapse. Protecting violent-case solving while property-crime clearance is let go? Each CMA's violent-clearance premium (violent weighted clearance minus overall weighted clearance) in 2018 and 2025, and the correlation between a CMA's overall-clearance change and the change in that premium: a detectable NEGATIVE r says the worse the overall collapse, the more the violent premium widened — triage. By name: the cities whose overall clearance fell five points or more while violent clearance fell less than half as far. One mechanical caveat the numbers cannot carry: the overall rate already CONTAINS the violent cases, so the premium understates the true violent-vs-nonviolent gap and the triage signal reads conservative. ~41 CMAs, StatCan 35-10-0026, association never causation."
   cypher: |
     MATCH (u:CaCmaSet {set:'canada'})-[:LISTS_VIOLCLEAR_THEN]->(vt:CaCmaViolClearThen)
     MATCH (u)-[:LISTS_VIOLCLEAR_NOW]->(vn:CaCmaViolClearNow) WHERE vn.vector = vt.vector
